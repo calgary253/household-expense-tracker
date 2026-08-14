@@ -231,9 +231,9 @@
             <div class="summary-box">
                 <p><strong>Total General Household (4-Way Split):</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
-                <p>🌐 <strong>Shaw Internet Total:</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / person)</em></p>
-                <p>⚡ <strong>Enmax Electricity Total:</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / person)</em></p>
-                <p>🔥 <strong>Atco Gas Total:</strong> $<span id="atco-total">0.00</span> <em>($<span id="atco-share">0.00</span> / person)</em></p>
+                <p>🌐 <strong>Shaw Internet Total:</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / person share)</em></p>
+                <p>⚡ <strong>Enmax Electricity Total:</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / person share)</em></p>
+                <p>🔥 <strong>Atco Gas Total:</strong> $<span id="atco-total">0.00</span> <em>($<span id="atco-share">0.00</span> / person share)</em></p>
                 <hr style="border:0; border-top: 1px dashed #ccc; margin: 10px 0;">
                 <p><strong>Combined Utility Total (8-Way):</strong> $<span id="utility-total">0.00</span></p>
                 <p><strong>Basement Family Contribution (5/8th Utility Total):</strong> $<span id="basement-total">0.00</span></p>
@@ -1034,7 +1034,7 @@
                 }
 
                 const remainingDue = totalDueJaimin - paidAmount;
-                const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0) || (recordVal === true);
+                const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0);
 
                 let actionCell = '';
                 const allowedUsersForUnit = rowInfo.key === 'Biren & Manali' ? ['Biren', 'Manali'] : (rowInfo.key === 'Akshay & Kunjal' ? ['Akshay', 'Kunjalbhabhi'] : [rowInfo.key]);
@@ -1106,7 +1106,7 @@
                 let formattedNet = '';
                 let isSettledCompletely = false;
 
-                if (recordVal === true || (net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
+                if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
                     isSettledCompletely = true;
                     statusClass = 'gets-back';
                     statusText = 'Paid & Settled ✓';
