@@ -1077,9 +1077,6 @@
             let debtors = [];
             let creditors = [];
 
-            const settlementBody = document.getElementById('settlement-list');
-            settlementBody.innerHTML = '';
-
             const unitShareCounts = {
                 "Biren": 1,
                 "Akshay & Kunjalbhabhi": 2,
@@ -1101,65 +1098,25 @@
                     paidAmount = recordVal;
                 }
 
-                let statusClass = '';
-                let statusText = '';
-                let formattedNet = '';
                 let isSettledCompletely = false;
-
                 if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
                     isSettledCompletely = true;
-                    statusClass = 'gets-back';
-                    statusText = 'Paid & Settled ✓';
-                    formattedNet = `$0.00`;
                 } else if (net >= 0) {
                     const remainingGet = net - paidAmount;
-                    statusClass = 'gets-back';
-                    statusText = paidAmount > 0 ? `Gets back remaining $${remainingGet.toFixed(2)} (Partial Paid)` : `Gets back $${net.toFixed(2)} (Unpaid)`;
-                    formattedNet = `$${remainingGet.toFixed(2)}`;
-                    creditors.push({ person: unitKey, amount: remainingGet });
+                    if (remainingGet > 0.005) {
+                        creditors.push({ person: unitKey, amount: remainingGet });
+                    } else {
+                        isSettledCompletely = true;
+                    }
                 } else {
                     const totalOwed = Math.abs(net);
                     const remainingDebt = totalOwed - paidAmount;
-                    statusClass = 'owes';
-                    statusText = paidAmount > 0 ? `Owes remaining $${remainingDebt.toFixed(2)} (Partial Paid)` : (carriedOver > 0 ? `Owes $${totalOwed.toFixed(2)} (Incl. Carryforward - Unpaid)` : `Owes $${totalOwed.toFixed(2)} (Unpaid)`);
-                    formattedNet = `-$${remainingDebt.toFixed(2)}`;
-                    debtors.push({ person: unitKey, amount: remainingDebt });
-                }
-
-                let actionButtonHtml = '';
-                if (isAdmin) {
-                    const btnClass = isSettledCompletely ? 'btn-paid' : 'btn-unpaid';
-                    let btnText = isSettledCompletely ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Edit)` : 'Mark Paid & Settled');
-                    actionButtonHtml = `
-                        <td>
-                            <button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
-                                ${btnText}
-                            </button>
-                        </td>`;
-                }
-
-                let rowSubInfo = '';
-                if (isSettledCompletely) {
-                    rowSubInfo = `<br><small style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</small>`;
-                } else {
-                    if (carriedOver > 0) rowSubInfo += `<br><small style="color:#d35400;">Carryforward: +$${carriedOver.toFixed(2)}</small>`;
-                    if (paidAmount > 0 && statusText.includes('Partial')) {
-                        rowSubInfo += `<br><small style="color:#e67e22;">Paid so far: $${paidAmount.toFixed(2)}</small>`;
+                    if (remainingDebt > 0.005) {
+                        debtors.push({ person: unitKey, amount: remainingDebt });
+                    } else {
+                        isSettledCompletely = true;
                     }
                 }
-
-                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
-
-                const row = document.createElement('tr');
-                row.innerHTML = `
-                    <td><strong>${displayName}</strong> ${rowSubInfo}</td>
-                    <td class="val-out-of-pocket">$${paid.toFixed(2)}</td>
-                    <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
-                    <td class="${statusClass}">${formattedNum(net)}</td>
-                    <td class="${statusClass}">${statusText}</td>
-                    ${actionButtonHtml}
-                `;
-                settlementBody.appendChild(row);
             });
 
             let tempDebtors = JSON.parse(JSON.stringify(debtors));
@@ -1198,6 +1155,83 @@
                     transfersList.appendChild(li);
                 });
             }
+
+            const settlementBody = document.getElementById('settlement-list');
+            settlementBody.innerHTML = '';
+
+            householdUnits.forEach(unitKey => {
+                const paid = unitHouseholdSpent[unitKey] || 0;
+                const carriedOver = carryforwardDebts[unitKey] || 0;
+                const baseShare = householdSharePerShare * unitShareCounts[unitKey];
+                const targetShare = baseShare + carriedOver;
+                const net = paid - targetShare;
+
+                const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[unitKey];
+                let paidAmount = 0;
+                if (recordVal === true) {
+                    paidAmount = Math.abs(net);
+                } else if (typeof recordVal === 'number') {
+                    paidAmount = recordVal;
+                }
+
+                let statusClass = '';
+                let statusText = '';
+                let formattedNet = '';
+                let isSettledCompletely = false;
+
+                if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
+                    isSettledCompletely = true;
+                    statusClass = 'gets-back';
+                    statusText = 'Paid & Settled ✓';
+                    formattedNet = `$0.00`;
+                } else if (net >= 0) {
+                    const remainingGet = net - paidAmount;
+                    statusClass = 'gets-back';
+                    statusText = paidAmount > 0 ? `Gets back remaining $${remainingGet.toFixed(2)} (Partial Paid)` : `Gets back $${net.toFixed(2)} (Unpaid)`;
+                    formattedNet = `$${remainingGet.toFixed(2)}`;
+                } else {
+                    const totalOwed = Math.abs(net);
+                    const remainingDebt = totalOwed - paidAmount;
+                    statusClass = 'owes';
+                    statusText = paidAmount > 0 ? `Owes remaining $${remainingDebt.toFixed(2)} (Partial Paid)` : (carriedOver > 0 ? `Owes $${totalOwed.toFixed(2)} (Incl. Carryforward - Unpaid)` : `Owes $${totalOwed.toFixed(2)} (Unpaid)`);
+                    formattedNet = `-$${remainingDebt.toFixed(2)}`;
+                }
+
+                let actionButtonHtml = '';
+                if (isAdmin) {
+                    const btnClass = isSettledCompletely ? 'btn-paid' : 'btn-unpaid';
+                    let btnText = isSettledCompletely ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Edit)` : 'Mark Paid & Settled');
+                    actionButtonHtml = `
+                        <td>
+                            <button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
+                                ${btnText}
+                            </button>
+                        </td>`;
+                }
+
+                let rowSubInfo = '';
+                if (isSettledCompletely) {
+                    rowSubInfo = `<br><small style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</small>`;
+                } else {
+                    if (carriedOver > 0) rowSubInfo += `<br><small style="color:#d35400;">Carryforward: +$${carriedOver.toFixed(2)}</small>`;
+                    if (paidAmount > 0 && statusText.includes('Partial')) {
+                        rowSubInfo += `<br><small style="color:#e67e22;">Paid so far: $${paidAmount.toFixed(2)}</small>`;
+                    }
+                }
+
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${displayName}</strong> ${rowSubInfo}</td>
+                    <td class="val-out-of-pocket">$${paid.toFixed(2)}</td>
+                    <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
+                    <td class="${statusClass}">${formattedNum(net)}</td>
+                    <td class="${statusClass}">${statusText}</td>
+                    ${actionButtonHtml}
+                `;
+                settlementBody.appendChild(row);
+            });
         }
 
         function formattedNum(netVal) {
