@@ -170,7 +170,7 @@
 
         <!-- Personal Quick Summary Card -->
         <div class="card" id="personal-summary-card" style="background: #eef7fe; border-left: 5px solid #2980b9;">
-            <h2 style="margin-top: 0; color: #2c3e50;">My Summary <span id="summary-month-label">Previous Month Balance</span></h2>
+            <h2 style="margin-top: 0; color: #2c3e50;">My Summary <span id="summary-month-label">Cumulative Standing</span></h2>
             <div id="personal-summary-content">
                 <p>Loading standing...</p>
             </div>
@@ -681,7 +681,7 @@
             const currentPaidVal = monthlyPayments.landlordPayments[month][unitKey];
             let currentPaidAmount = 0;
             if (currentPaidVal === true) currentPaidAmount = fullDueAmount;
-            else if (typeof currentPaidVal === 'number') currentPaidAmount = currentPaidVal;
+            else if (typeof currentPaidVal === 'number') currentPaidAmount = fullDueAmount; // or whatever was paid
 
             const inputVal = prompt(`Enter custom amount paid to Jaimin (Total Due: $${fullDueAmount.toFixed(2)}):`, currentPaidAmount.toFixed(2));
             if (inputVal === null) return;
@@ -725,14 +725,23 @@
             calculateSettlementForMonth(selectedMonth);
         }
 
+        // Helper to find all distinct months present in expenses or payment records
+        function getAllTrackedMonths() {
+            let monthSet = new Set();
+            expenses.forEach(e => {
+                if (e.date) monthSet.add(e.date.substring(0, 7));
+            });
+            if (monthlyPayments.landlordPayments) {
+                Object.keys(monthlyPayments.landlordPayments).forEach(m => monthSet.add(m));
+            }
+            if (monthlyPayments.householdPaid) {
+                Object.keys(monthlyPayments.householdPaid).forEach(m => monthSet.add(m));
+            }
+            monthSet.add(getLocalMonthString());
+            return Array.from(monthSet).sort();
+        }
+
         function computeAndRenderPersonalSummary() {
-            const selectedMonth = document.getElementById('view-month-select').value;
-            const prevMonth = getPreviousMonthString(selectedMonth);
-
-            const [pYear, pMonth] = prevMonth.split('-');
-            const prevMonthName = new Date(pYear, pMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            document.getElementById('summary-month-label').innerText = `Previous Month (${prevMonthName} Standing)`;
-
             const container = document.getElementById('personal-summary-content');
             let html = '';
 
@@ -742,102 +751,7 @@
                 return;
             }
 
-            const householdUnits = ["Biren", "Akshay & Kunjalbhabhi", "Biju"];
-            const landlordRows = [
-                { key: "Biren & Manali", name: "Biren & Manali", utilityMultiplier: 2, rent: rentDistribution["Biren & Manali"] },
-                { key: "Akshay & Kunjal", name: "Akshay & Kunjal", utilityMultiplier: 2, rent: rentDistribution["Akshay & Kunjal"] },
-                { key: "Biju", name: "Biju", utilityMultiplier: 1, rent: rentDistribution["Biju"] }
-            ];
-
-            const prevExpenses = expenses.filter(e => !e.archived && e.date && e.date.startsWith(prevMonth));
-            
-            let prevHouseholdTotal = 0, prevShaw = 0, prevEnmax = 0, prevAtco = 0;
-            let prevUnitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
-
-            prevExpenses.forEach(item => {
-                if (item.category === 'shaw') prevShaw += item.amount;
-                else if (item.category === 'enmax') prevEnmax += item.amount;
-                else if (item.category === 'atco') prevAtco += item.amount;
-                else {
-                    prevHouseholdTotal += item.amount;
-                    if (item.paidBy === "Biren" || item.paidBy === "Manali") prevUnitHouseholdSpent["Biren"] += item.amount;
-                    else if (item.paidBy === "Biju") prevUnitHouseholdSpent["Biju"] += item.amount;
-                    else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") prevUnitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
-                }
-            });
-
-            const prevUtilityTotal = prevShaw + prevEnmax + prevAtco;
-            const prevHouseholdSharePerShare = prevHouseholdTotal / 4; 
-            const prevUtilitySharePerPerson = prevUtilityTotal / TOTAL_UTILITY_RESIDENTS;
-
-            let landlordBreakdownData = {};
-            landlordRows.forEach(rowInfo => {
-                const personUtilityTotal = prevUtilitySharePerPerson * rowInfo.utilityMultiplier;
-                const totalDueJaimin = personUtilityTotal + rowInfo.rent;
-
-                const recordVal = monthlyPayments.landlordPayments?.[prevMonth]?.[rowInfo.key];
-                let paidAmount = 0;
-                if (recordVal === true || (typeof recordVal === 'number' && recordVal >= totalDueJaimin - 0.005)) {
-                    paidAmount = totalDueJaimin;
-                } else if (typeof recordVal === 'number') {
-                    paidAmount = recordVal;
-                }
-
-                const remainingDue = totalDueJaimin - paidAmount;
-                const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0) || (recordVal === true);
-
-                landlordBreakdownData[rowInfo.key] = {
-                    totalDue: totalDueJaimin,
-                    paidAmount: paidAmount,
-                    remainingDue: remainingDue,
-                    isFullyPaid: isFullyPaid
-                };
-            });
-
-            let debtors = [];
-            let creditors = [];
-            let householdNetMap = {};
-            const unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
-
-            householdUnits.forEach(unitKey => {
-                const paid = prevUnitHouseholdSpent[unitKey] || 0;
-                const baseShare = prevHouseholdSharePerShare * unitShareCounts[unitKey];
-                const net = paid - baseShare;
-
-                const recordVal = monthlyPayments.householdPaid?.[prevMonth]?.[unitKey];
-                let paidAmount = 0;
-                if (recordVal === true) {
-                    paidAmount = Math.abs(net);
-                } else if (typeof recordVal === 'number') {
-                    paidAmount = recordVal;
-                }
-
-                let isSettledCompletely = false;
-                if (recordVal === true || (net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
-                    isSettledCompletely = true;
-                } else if (net >= 0) {
-                    const remainingGet = net - paidAmount;
-                    if (remainingGet <= 0.005) {
-                        isSettledCompletely = true;
-                    } else {
-                        creditors.push({ person: unitKey, amount: remainingGet });
-                    }
-                } else {
-                    const totalOwed = Math.abs(net);
-                    const remainingDebt = totalOwed - paidAmount;
-                    if (remainingDebt <= 0.005) {
-                        isSettledCompletely = true;
-                    } else {
-                        debtors.push({ person: unitKey, amount: remainingDebt });
-                    }
-                }
-
-                householdNetMap[unitKey] = {
-                    net: net,
-                    paidAmount: paidAmount,
-                    isSettled: isSettledCompletely
-                };
-            });
+            document.getElementById('summary-month-label').innerText = `Cumulative Standing (Past Months Unpaid Carried Over)`;
 
             let userUnitKey = currentUser;
             if (currentUser === 'Biren' || currentUser === 'Manali') {
@@ -847,36 +761,98 @@
             }
 
             let landlordKey = (currentUser === 'Biren' || currentUser === 'Manali') ? 'Biren & Manali' : ((currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') ? 'Akshay & Kunjal' : currentUser);
-            let landlordInfo = landlordBreakdownData[landlordKey];
 
-            if (landlordInfo) {
-                if (landlordInfo.isFullyPaid) {
-                    html += `<p>✅ <strong>Rent & Utilities (to Jaimin for ${prevMonthName}):</strong> <span class="gets-back">Paid & Settled</span> ($${landlordInfo.totalDue.toFixed(2)}).</p>`;
-                } else {
-                    let paidNote = landlordInfo.paidAmount > 0 ? ` (Paid so far: $${landlordInfo.paidAmount.toFixed(2)})` : '';
-                    html += `<p>📌 <strong>Rent & Utilities Owed to Jaimin (${prevMonthName}):</strong> <span class="owes">$${landlordInfo.remainingDue.toFixed(2)}</span>${paidNote}</p>`;
+            // Compute cumulative unpaid landlord rent/utilities across all tracked past months
+            let allMonths = getAllTrackedMonths();
+            let currentActiveMonth = getLocalMonthString();
+            
+            let totalUnpaidLandlordDebt = 0;
+            let landlordBreakdownMonths = [];
+
+            allMonths.forEach(m => {
+                // Don't evaluate current active month for backlog unless wanted, or evaluate all up to current
+                if (m >= currentActiveMonth) return;
+
+                let mExpenses = expenses.filter(e => !e.archived && e.date && e.date.startsWith(m));
+                if (mExpenses.length === 0 && (!monthlyPayments.landlordPayments?.[m]?.[landlordKey])) return;
+
+                let shaw = 0, enmax = 0, atco = 0;
+                mExpenses.forEach(item => {
+                    if (item.category === 'shaw') shaw += item.amount;
+                    else if (item.category === 'enmax') enmax += item.amount;
+                    else if (item.category === 'atco') atco += item.amount;
+                });
+
+                let utilityTotal = shaw + enmax + atco;
+                let utilitySharePerPerson = utilityTotal / TOTAL_UTILITY_RESIDENTS;
+                let utilityMultiplier = (landlordKey === 'Biju') ? 1 : 2;
+                let rentAmount = rentDistribution[landlordKey] || 0;
+                let totalDueJaimin = (utilitySharePerPerson * utilityMultiplier) + rentAmount;
+
+                let recordVal = monthlyPayments.landlordPayments?.[m]?.[landlordKey];
+                let paidAmount = 0;
+                if (recordVal === true || (typeof recordVal === 'number' && recordVal >= totalDueJaimin - 0.005)) {
+                    paidAmount = totalDueJaimin;
+                } else if (typeof recordVal === 'number') {
+                    paidAmount = recordVal;
                 }
+
+                let remaining = totalDueJaimin - paidAmount;
+                if (remaining > 0.005) {
+                    totalUnpaidLandlordDebt += remaining;
+                }
+            });
+
+            // Compute cumulative household debts across all past months
+            let totalUnpaidHouseholdDebt = 0;
+            allMonths.forEach(m => {
+                if (m >= currentActiveMonth) return;
+
+                let mExpenses = expenses.filter(e => !e.archived && e.date && e.date.startsWith(m));
+                if (mExpenses.length === 0) return;
+
+                let householdTotal = 0;
+                let unitSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+
+                mExpenses.forEach(item => {
+                    if (!['shaw', 'enmax', 'atco'].includes(item.category)) {
+                        householdTotal += item.amount;
+                        if (item.paidBy === "Biren" || item.paidBy === "Manali") unitSpent["Biren"] += item.amount;
+                        else if (item.paidBy === "Biju") unitSpent["Biju"] += item.amount;
+                        else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                    }
+                });
+
+                let sharePerShare = householdTotal / 4;
+                let unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+                let targetShare = sharePerShare * unitShareCounts[userUnitKey];
+                let paid = unitSpent[userUnitKey] || 0;
+                let net = paid - targetShare;
+
+                if (net < -0.005) {
+                    let totalOwed = Math.abs(net);
+                    let recordVal = monthlyPayments.householdPaid?.[m]?.[userUnitKey];
+                    let paidAmount = 0;
+                    if (recordVal === true) paidAmount = totalOwed;
+                    else if (typeof recordVal === 'number') paidAmount = recordVal;
+
+                    let remainingDebt = totalOwed - paidAmount;
+                    if (remainingDebt > 0.005) {
+                        totalUnpaidHouseholdDebt += remainingDebt;
+                    }
+                }
+            });
+
+            if (totalUnpaidLandlordDebt > 0.005) {
+                html += `<p>⚠️ <strong>Cumulative Past Rent & Utilities Owed to Jaimin:</strong> <span class="owes">-$${totalUnpaidLandlordDebt.toFixed(2)}</span> (across past months)</p>`;
+            } else {
+                html += `<p>✅ <strong>Rent & Utilities:</strong> <span class="gets-back">All past dues settled up ✓</span></p>`;
             }
 
-            let unitStanding = householdNetMap[userUnitKey];
-            if (unitStanding) {
-                if (unitStanding.isSettled) {
-                    html += `<p>✅ <strong>Household Expenses (${prevMonthName}):</strong> <span class="gets-back">Paid & Settled</span></p>`;
-                } else if (unitStanding.net >= 0) {
-                    let remainingGet = unitStanding.net - unitStanding.paidAmount;
-                    if (remainingGet > 0.005) {
-                        html += `<p>💰 <strong>Household Expenses (${prevMonthName}):</strong> You <strong>get back</strong> a net balance of <span class="gets-back">+$${remainingGet.toFixed(2)}</span>.</p>`;
-                    } else {
-                        html += `<p>✅ <strong>Household Expenses (${prevMonthName}):</strong> <span class="gets-back">Paid & Settled</span></p>`;
-                    }
-                } else {
-                    let totalRemainingOwedToPay = Math.abs(unitStanding.net) - unitStanding.paidAmount;
-                    if (totalRemainingOwedToPay > 0.005) {
-                        html += `<p>⚠️ <strong>Household Expenses Owed (${prevMonthName}):</strong> You owe a net total of <span class="owes">-$${totalRemainingOwedToPay.toFixed(2)}</span>.</p>`;
-                    } else {
-                        html += `<p>✅ <strong>Household Expenses (${prevMonthName}):</strong> <span class="gets-back">Paid & Settled</span></p>`;
-                    }
-                }
+            if (totalUnpaidHouseholdDebt > 0.005) {
+                html += `<p>⚠️ <strong>Cumulative Past Household Expenses Owed:</strong> <span class="owes">-$${totalUnpaidHouseholdDebt.toFixed(2)}</span> (across past months)</p>`;
+            } else {
+                html += `<p>✅ <strong>Household Expenses:</strong> <span class="gets-back">All past dues settled up ✓</span></p>`;
             }
 
             container.innerHTML = html;
