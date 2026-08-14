@@ -631,7 +631,7 @@
             }
 
             const currentPaidAmount = monthlyPayments.householdPaid[month][unitKey];
-            const isFullyPaid = (currentPaidAmount === true || currentPaidAmount >= fullDueAmount - 0.005);
+            const isFullyPaid = (currentPaidAmount === true || (typeof currentPaidAmount === 'number' && currentPaidAmount >= fullDueAmount - 0.005));
 
             if (isFullyPaid) {
                 monthlyPayments.householdPaid[month][unitKey] = 0;
@@ -658,7 +658,7 @@
             }
 
             const currentPaidAmount = monthlyPayments.landlordPayments[month][unitKey];
-            const isFullyPaid = (currentPaidAmount === true || currentPaidAmount >= fullDueAmount - 0.005);
+            const isFullyPaid = (currentPaidAmount === true || (typeof currentPaidAmount === 'number' && currentPaidAmount >= fullDueAmount - 0.005));
 
             if (isFullyPaid) {
                 monthlyPayments.landlordPayments[month][unitKey] = 0;
