@@ -272,7 +272,6 @@
                                 <th>Target Share</th>
                                 <th>Net Balance</th>
                                 <th>Status</th>
-                                <th id="household-action-col" style="display: none;">Admin Action</th>
                             </tr>
                         </thead>
                         <tbody id="settlement-list"></tbody>
@@ -337,7 +336,6 @@
                 document.getElementById('clear-btn').style.display = 'block';
                 document.getElementById('admin-month-filter').style.display = 'flex';
                 document.getElementById('actions-col').style.display = 'table-cell';
-                document.getElementById('household-action-col').style.display = 'table-cell';
                 document.getElementById('prev-balance-action-col').style.display = 'table-cell';
             } else if (isJaimin) {
                 document.getElementById('role-badge').innerHTML = '<span class="landlord-badge">LANDLORD / UTILITY MANAGER</span>';
@@ -639,29 +637,6 @@
             }
         }
 
-        async function promptHouseholdPayment(month, unitKey, fullDueAmount) {
-            if (!isAdmin) return;
-
-            if (!monthlyPayments.householdPaid) {
-                monthlyPayments.householdPaid = {};
-            }
-            if (!monthlyPayments.householdPaid[month]) {
-                monthlyPayments.householdPaid[month] = {};
-            }
-
-            const currentPaidAmount = monthlyPayments.householdPaid[month][unitKey];
-            const isFullyPaid = (currentPaidAmount === true || (typeof currentPaidAmount === 'number' && currentPaidAmount >= fullDueAmount - 0.005));
-
-            if (isFullyPaid) {
-                monthlyPayments.householdPaid[month][unitKey] = 0;
-            } else {
-                monthlyPayments.householdPaid[month][unitKey] = fullDueAmount;
-            }
-
-            calculateAndShowReport();
-            await saveExpensesToCloud();
-        }
-
         async function promptPrevBalancePayment(month, unitKey, fullDueAmount) {
             if (!isAdmin) return;
 
@@ -897,6 +872,7 @@
             const prevMonth = getPreviousMonthString(selectedMonth);
 
             let prevMonthUnpaidDebts = {};
+            let prevMonthOriginalDebts = {};
             const householdUnits = ["Biren", "Akshay & Kunjalbhabhi", "Biju"];
             const landlordRows = [
                 { key: "Biren & Manali", name: "Biren & Manali", utilityMultiplier: 2, rent: rentDistribution["Biren & Manali"] },
@@ -932,6 +908,7 @@
 
                     if (netBeforePayment < -0.005) {
                         const totalOwed = Math.abs(netBeforePayment);
+                        prevMonthOriginalDebts[unitKey] = totalOwed;
                         const recordVal = monthlyPayments.householdPaid?.[prevMonth]?.[unitKey];
                         let paidAmount = 0;
                         if (recordVal === true) paidAmount = totalOwed;
@@ -944,11 +921,15 @@
                             prevMonthUnpaidDebts[unitKey] = 0;
                         }
                     } else {
+                        prevMonthOriginalDebts[unitKey] = 0;
                         prevMonthUnpaidDebts[unitKey] = 0;
                     }
                 });
             } else {
-                householdUnits.forEach(unitKey => { prevMonthUnpaidDebts[unitKey] = 0; });
+                householdUnits.forEach(unitKey => { 
+                    prevMonthOriginalDebts[unitKey] = 0;
+                    prevMonthUnpaidDebts[unitKey] = 0; 
+                });
             }
 
             const filteredExpenses = expenses.filter(e => !e.archived && e.date && e.date.startsWith(selectedMonth));
@@ -1127,7 +1108,7 @@
                 });
             }
 
-            // 3. Individual Balances & Settlement Summary Table
+            // 3. Individual Balances & Settlement Summary Table (Admin Action column removed)
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
@@ -1167,19 +1148,6 @@
                     formattedNet = `-$${remainingDebt.toFixed(2)}`;
                 }
 
-                let actionButtonHtml = '';
-                if (isAdmin) {
-                    const btnClass = isSettledCompletely ? 'btn-paid' : 'btn-unpaid';
-                    let btnText = isSettledCompletely ? 'Paid ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)}` : 'Mark Paid');
-                    
-                    actionButtonHtml = `
-                        <td>
-                            <button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
-                                ${btnText}
-                            </button>
-                        </td>`;
-                }
-
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
                 const row = document.createElement('tr');
@@ -1189,30 +1157,34 @@
                     <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
                     <td class="${statusClass}">${formattedNum(net)}</td>
                     <td class="${statusClass}">${statusText}</td>
-                    ${actionButtonHtml}
                 `;
                 settlementBody.appendChild(row);
             });
 
-            // 4. Previous Month Unpaid Balances Table
+            // 4. Previous Month Unpaid Balances Table (Toggle action added to correct accidental clicks)
             const prevBalanceBody = document.getElementById('prev-balance-list');
             prevBalanceBody.innerHTML = '';
 
             householdUnits.forEach(unitKey => {
+                const originalDebt = prevMonthOriginalDebts[unitKey] || 0;
                 const prevBalance = prevMonthUnpaidDebts[unitKey] || 0;
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
                 let actionButtonHtml = '';
                 if (isAdmin) {
-                    if (prevBalance > 0) {
+                    if (originalDebt > 0) {
+                        const isCurrentlyPaid = prevBalance <= 0.005;
+                        const btnClass = isCurrentlyPaid ? 'btn-paid' : 'btn-unpaid';
+                        const btnText = isCurrentlyPaid ? `Paid ✓ (Click to Undo)` : `Mark Paid ($${originalDebt.toFixed(2)})`;
+                        
                         actionButtonHtml = `
                             <td>
-                                <button class="btn-action btn-unpaid" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${prevBalance})">
-                                    Mark Paid ($${prevBalance.toFixed(2)})
+                                <button class="btn-action ${btnClass}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">
+                                    ${btnText}
                                 </button>
                             </td>`;
                     } else {
-                        actionButtonHtml = `<td><span style="color:#27ae60;">No Outstanding Due ✓</span></td>`;
+                        actionButtonHtml = `<td><span style="color:#27ae60;">No Past Due ✓</span></td>`;
                     }
                 }
 
@@ -1222,7 +1194,7 @@
                 row.innerHTML = `
                     <td><strong>${displayName}</strong></td>
                     <td class="val-prev-balance">${balanceDisplay}</td>
-                    <td>${prevBalance > 0 ? '<span class="owes">Outstanding</span>' : '<span style="color:#27ae60;">Settled</span>'}</td>
+                    <td>${prevBalance > 0 ? '<span class="owes">Outstanding</span>' : '<span style="color:#27ae60;">Settled ✓</span>'}</td>
                     ${actionButtonHtml}
                 `;
                 prevBalanceBody.appendChild(row);
