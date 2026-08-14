@@ -644,14 +644,21 @@
             if (!monthlyPayments.householdPaid) monthlyPayments.householdPaid = {};
             if (!monthlyPayments.householdPaid[prevMonth]) monthlyPayments.householdPaid[prevMonth] = {};
 
-            const currentPaidAmount = monthlyPayments.householdPaid[prevMonth][unitKey];
-            const isFullyPaid = (currentPaidAmount === true || (typeof currentPaidAmount === 'number' && currentPaidAmount >= fullDueAmount - 0.005));
+            const currentPaidVal = monthlyPayments.householdPaid[prevMonth][unitKey];
+            let currentPaidAmount = 0;
+            if (currentPaidVal === true) currentPaidAmount = fullDueAmount;
+            else if (typeof currentPaidVal === 'number') currentPaidAmount = currentPaidVal;
 
-            if (isFullyPaid) {
-                monthlyPayments.householdPaid[prevMonth][unitKey] = 0;
-            } else {
-                monthlyPayments.householdPaid[prevMonth][unitKey] = fullDueAmount;
+            const inputVal = prompt(`Enter custom amount paid for past due balance (Total Due: $${fullDueAmount.toFixed(2)}):`, currentPaidAmount.toFixed(2));
+            if (inputVal === null) return;
+
+            const customAmount = parseFloat(inputVal);
+            if (isNaN(customAmount) || customAmount < 0) {
+                alert("Please enter a valid amount.");
+                return;
             }
+
+            monthlyPayments.householdPaid[prevMonth][unitKey] = customAmount;
 
             calculateAndShowReport();
             await saveExpensesToCloud();
@@ -671,14 +678,21 @@
                 monthlyPayments.landlordPayments[month] = {};
             }
 
-            const currentPaidAmount = monthlyPayments.landlordPayments[month][unitKey];
-            const isFullyPaid = (currentPaidAmount === true || (typeof currentPaidAmount === 'number' && currentPaidAmount >= fullDueAmount - 0.005));
+            const currentPaidVal = monthlyPayments.landlordPayments[month][unitKey];
+            let currentPaidAmount = 0;
+            if (currentPaidVal === true) currentPaidAmount = fullDueAmount;
+            else if (typeof currentPaidVal === 'number') currentPaidAmount = currentPaidVal;
 
-            if (isFullyPaid) {
-                monthlyPayments.landlordPayments[month][unitKey] = 0;
-            } else {
-                monthlyPayments.landlordPayments[month][unitKey] = fullDueAmount;
+            const inputVal = prompt(`Enter custom amount paid to Jaimin (Total Due: $${fullDueAmount.toFixed(2)}):`, currentPaidAmount.toFixed(2));
+            if (inputVal === null) return;
+
+            const customAmount = parseFloat(inputVal);
+            if (isNaN(customAmount) || customAmount < 0) {
+                alert("Please enter a valid amount.");
+                return;
             }
+
+            monthlyPayments.landlordPayments[month][unitKey] = customAmount;
 
             calculateAndShowReport();
             await saveExpensesToCloud();
@@ -1002,7 +1016,7 @@
                 
                 if (canEditRent) {
                     const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
-                    let btnText = isFullyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Mark Settled)` : 'Mark Paid & Settled');
+                    let btnText = isFullyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Update Payment)` : 'Enter Payment');
                     actionCell = `
                         <td>
                             <button class="btn-action ${btnClass}" 
@@ -1108,7 +1122,7 @@
                 });
             }
 
-            // 3. Individual Balances & Settlement Summary Table (Admin Action column removed)
+            // 3. Individual Balances & Settlement Summary Table
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
@@ -1161,7 +1175,7 @@
                 settlementBody.appendChild(row);
             });
 
-            // 4. Previous Month Unpaid Balances Table (Toggle action added to correct accidental clicks)
+            // 4. Previous Month Unpaid Balances Table
             const prevBalanceBody = document.getElementById('prev-balance-list');
             prevBalanceBody.innerHTML = '';
 
@@ -1175,7 +1189,7 @@
                     if (originalDebt > 0) {
                         const isCurrentlyPaid = prevBalance <= 0.005;
                         const btnClass = isCurrentlyPaid ? 'btn-paid' : 'btn-unpaid';
-                        const btnText = isCurrentlyPaid ? `Paid ✓ (Click to Undo)` : `Mark Paid ($${originalDebt.toFixed(2)})`;
+                        const btnText = isCurrentlyPaid ? `Paid ✓ (Update Amount)` : `Enter Payment ($${originalDebt.toFixed(2)})`;
                         
                         actionButtonHtml = `
                             <td>
