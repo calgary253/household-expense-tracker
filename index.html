@@ -285,19 +285,18 @@
         const JSONBIN_BIN_ID = "6a63d85cf5f4af5e29bd604c";
         const JSONBIN_MASTER_KEY = "$2a$10$aGsMHmzawGqngUYQk4byNO6eOgVEFFObkr5LyuKv1hQ73QECFOWN2";
 
-        const validUsers = ["Biren", "Akshay", "Kunjalbhabhi", "Biju", "Jaimin"];
+        const validUsers = ["Biren", "Akshay", "Kunjalbhabhi", "Biju", "Jaimin", "Manali"];
         const TOTAL_UTILITY_RESIDENTS = 8; 
 
         const rentDistribution = {
-            "Biren": 650,
-            "Akshay": 325,
-            "Kunjalbhabhi": 325,
+            "Biren & Manali": 650,
+            "Akshay & Kunjal": 650,
             "Biju": 0
         };
 
         let expenses = [];
         let monthlyPayments = {}; 
-        let generatedReports = {}; // Tracks which months have had their settlement reports generated
+        let generatedReports = {}; 
 
         const urlParams = new URLSearchParams(window.location.search);
         let currentUser = urlParams.get('user') || '';
@@ -645,7 +644,8 @@
         }
 
         async function promptLandlordPayment(month, unitKey, fullDueAmount) {
-            if (!isAdmin && !isJaimin && currentUser !== unitKey && !(unitKey === 'Akshay & Kunjalbhabhi' && (currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi'))) {
+            const allowedUsersForUnit = unitKey === 'Biren & Manali' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjal' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+            if (!isAdmin && !isJaimin && !allowedUsersForUnit.includes(currentUser)) {
                 alert("You do not have permission to update payment status for this unit.");
                 return;
             }
@@ -716,8 +716,8 @@
 
             const householdUnits = ["Biren", "Akshay & Kunjalbhabhi", "Biju"];
             const landlordRows = [
-                { key: "Biren", name: "Biren", utilityMultiplier: 1, rent: rentDistribution["Biren"] },
-                { key: "Akshay & Kunjalbhabhi", name: "Akshay & Kunjalbhabhi", utilityMultiplier: 2, rent: rentDistribution["Akshay"] + rentDistribution["Kunjalbhabhi"] },
+                { key: "Biren & Manali", name: "Biren & Manali", utilityMultiplier: 2, rent: rentDistribution["Biren & Manali"] },
+                { key: "Akshay & Kunjal", name: "Akshay & Kunjal", utilityMultiplier: 2, rent: rentDistribution["Akshay & Kunjal"] },
                 { key: "Biju", name: "Biju", utilityMultiplier: 1, rent: rentDistribution["Biju"] }
             ];
 
@@ -732,7 +732,7 @@
                 else if (item.category === 'atco') prevAtco += item.amount;
                 else {
                     prevHouseholdTotal += item.amount;
-                    if (item.paidBy === "Biren") prevUnitHouseholdSpent["Biren"] += item.amount;
+                    if (item.paidBy === "Biren" || item.paidBy === "Manali") prevUnitHouseholdSpent["Biren"] += item.amount;
                     else if (item.paidBy === "Biju") prevUnitHouseholdSpent["Biju"] += item.amount;
                     else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") prevUnitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
                 }
@@ -841,11 +841,13 @@
             }
 
             let userUnitKey = currentUser;
-            if (currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') {
+            if (currentUser === 'Biren' || currentUser === 'Manali') {
+                userUnitKey = 'Biren';
+            } else if (currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') {
                 userUnitKey = 'Akshay & Kunjalbhabhi';
             }
 
-            let landlordKey = (currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') ? 'Akshay & Kunjalbhabhi' : currentUser;
+            let landlordKey = (currentUser === 'Biren' || currentUser === 'Manali') ? 'Biren & Manali' : ((currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') ? 'Akshay & Kunjal' : currentUser);
             let landlordInfo = landlordBreakdownData[landlordKey];
 
             if (landlordInfo) {
@@ -894,8 +896,8 @@
             let carryforwardLandlordDebts = {};
             const householdUnits = ["Biren", "Akshay & Kunjalbhabhi", "Biju"];
             const landlordRows = [
-                { key: "Biren", name: "Biren", utilityMultiplier: 1, rent: rentDistribution["Biren"] },
-                { key: "Akshay & Kunjalbhabhi", name: "Akshay & Kunjalbhabhi", utilityMultiplier: 2, rent: rentDistribution["Akshay"] + rentDistribution["Kunjalbhabhi"] },
+                { key: "Biren & Manali", name: "Biren & Manali", utilityMultiplier: 2, rent: rentDistribution["Biren & Manali"] },
+                { key: "Akshay & Kunjal", name: "Akshay & Kunjal", utilityMultiplier: 2, rent: rentDistribution["Akshay & Kunjal"] },
                 { key: "Biju", name: "Biju", utilityMultiplier: 1, rent: rentDistribution["Biju"] }
             ];
 
@@ -907,7 +909,7 @@
                 prevExpenses.forEach(item => {
                     if (!['shaw', 'enmax', 'atco'].includes(item.category)) {
                         prevTotal += item.amount;
-                        if (item.paidBy === "Biren") prevSpent["Biren"] += item.amount;
+                        if (item.paidBy === "Biren" || item.paidBy === "Manali") prevSpent["Biren"] += item.amount;
                         else if (item.paidBy === "Biju") prevSpent["Biju"] += item.amount;
                         else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") prevSpent["Akshay & Kunjalbhabhi"] += item.amount;
                     }
@@ -982,7 +984,7 @@
                 else if (item.category === 'atco') atcoTotal += item.amount;
                 else {
                     householdTotal += item.amount;
-                    if (item.paidBy === "Biren") unitHouseholdSpent["Biren"] += item.amount;
+                    if (item.paidBy === "Biren" || item.paidBy === "Manali") unitHouseholdSpent["Biren"] += item.amount;
                     else if (item.paidBy === "Biju") unitHouseholdSpent["Biju"] += item.amount;
                     else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
                 }
@@ -1035,7 +1037,8 @@
                 const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0) || (recordVal === true);
 
                 let actionCell = '';
-                const canEditRent = isAdmin || isJaimin || currentUser === rowInfo.name || (rowInfo.key === 'Akshay & Kunjalbhabhi' && (currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi'));
+                const allowedUsersForUnit = rowInfo.key === 'Biren & Manali' ? ['Biren', 'Manali'] : (rowInfo.key === 'Akshay & Kunjal' ? ['Akshay', 'Kunjalbhabhi'] : [rowInfo.key]);
+                const canEditRent = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
                 
                 if (canEditRent) {
                     const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
@@ -1145,9 +1148,11 @@
                     }
                 }
 
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+
                 const row = document.createElement('tr');
                 row.innerHTML = `
-                    <td><strong>${unitKey}</strong> ${rowSubInfo}</td>
+                    <td><strong>${displayName}</strong> ${rowSubInfo}</td>
                     <td class="val-out-of-pocket">$${paid.toFixed(2)}</td>
                     <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
                     <td class="${statusClass}">${formattedNum(net)}</td>
@@ -1187,7 +1192,9 @@
             } else {
                 transferListDetailed.forEach(t => {
                     const li = document.createElement('li');
-                    li.innerHTML = `<strong>${t.from}</strong> owes <strong>${t.to}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span>`;
+                    const fromName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
+                    const toName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
+                    li.innerHTML = `<strong>${fromName}</strong> owes <strong>${toName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span>`;
                     transfersList.appendChild(li);
                 });
             }
