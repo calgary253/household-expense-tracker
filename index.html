@@ -1114,7 +1114,8 @@
                     const li = document.createElement('li');
                     const fromName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
                     const toName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
-                    li.innerHTML = `<strong>${fromName}</strong> owes <strong>${toName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span>`;
+                    // Updated phrasing to use "Pays" instead of "owes"
+                    li.innerHTML = `<strong>${fromName}</strong> Pays <strong>${toName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span>`;
                     transfersList.appendChild(li);
                 });
             }
@@ -1150,7 +1151,6 @@
                 let actionCell = '';
                 
                 if (isOwing) {
-                    // Only show the button/payment option for those who are owing
                     const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
                     const canEditHousehold = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
 
@@ -1168,7 +1168,6 @@
                         actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${Math.abs(net).toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
                     }
                 } else {
-                    // For creditors (gets back), display "Gets Back: $X.XX" instead of a button
                     let getBackAmount = adjustedNet > 0 ? adjustedNet : net;
                     actionCell = `<td><span class="gets-back">Gets Back: $${getBackAmount.toFixed(2)}</span></td>`;
                 }
