@@ -287,8 +287,7 @@
                             <tr>
                                 <th>Person / Unit</th>
                                 <th>Previous Month Due</th>
-                                <th>Status</th>
-                                <th id="prev-balance-action-col" style="display: none;">Admin Action</th>
+                                <th>Payment Status</th>
                             </tr>
                         </thead>
                         <tbody id="prev-balance-list"></tbody>
@@ -336,7 +335,6 @@
                 document.getElementById('clear-btn').style.display = 'block';
                 document.getElementById('admin-month-filter').style.display = 'flex';
                 document.getElementById('actions-col').style.display = 'table-cell';
-                document.getElementById('prev-balance-action-col').style.display = 'table-cell';
             } else if (isJaimin) {
                 document.getElementById('role-badge').innerHTML = '<span class="landlord-badge">LANDLORD / UTILITY MANAGER</span>';
                 const optHousehold = document.getElementById('opt-household');
@@ -638,7 +636,11 @@
         }
 
         async function promptPrevBalancePayment(month, unitKey, fullDueAmount) {
-            if (!isAdmin) return;
+            const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+            if (!isAdmin && !isJaimin && !allowedUsersForUnit.includes(currentUser)) {
+                alert("You do not have permission to update payment status for this unit.");
+                return;
+            }
 
             const prevMonth = getPreviousMonthString(month);
             if (!monthlyPayments.householdPaid) monthlyPayments.householdPaid = {};
@@ -1145,22 +1147,32 @@
                 const prevBalance = prevMonthUnpaidDebts[unitKey] || 0;
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
-                let actionButtonHtml = '';
-                if (isAdmin) {
-                    if (originalDebt > 0) {
-                        const isCurrentlyPaid = prevBalance <= 0.005;
+                let paymentStatusCell = '';
+                const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+                const canEditPrev = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
+
+                if (originalDebt > 0) {
+                    const isCurrentlyPaid = prevBalance <= 0.005;
+                    const recordVal = monthlyPayments.householdPaid?.[prevMonth]?.[unitKey];
+                    let paidAmount = 0;
+                    if (recordVal === true) paidAmount = originalDebt;
+                    else if (typeof recordVal === 'number') paidAmount = recordVal;
+                    const remainingDue = originalDebt - paidAmount;
+
+                    if (canEditPrev) {
                         const btnClass = isCurrentlyPaid ? 'btn-paid' : 'btn-unpaid';
-                        const btnText = isCurrentlyPaid ? `Paid ✓ (Update Amount)` : `Enter Payment ($${originalDebt.toFixed(2)})`;
-                        
-                        actionButtonHtml = `
+                        let btnText = isCurrentlyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Update Payment)` : 'Enter Payment');
+                        paymentStatusCell = `
                             <td>
                                 <button class="btn-action ${btnClass}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">
                                     ${btnText}
                                 </button>
                             </td>`;
                     } else {
-                        actionButtonHtml = `<td><span style="color:#27ae60;">No Past Due ✓</span></td>`;
+                        paymentStatusCell = `<td>${isCurrentlyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${originalDebt.toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
                     }
+                } else {
+                    paymentStatusCell = `<td><span style="color:#27ae60; font-weight:bold;">No Past Due ✓</span></td>`;
                 }
 
                 let balanceDisplay = prevBalance > 0 ? `<span class="owes">-$${prevBalance.toFixed(2)} (Unpaid)</span>` : `<span style="color:#27ae60; font-weight:bold;">$0.00 (Settled)</span>`;
@@ -1169,8 +1181,7 @@
                 row.innerHTML = `
                     <td><strong>${displayName}</strong></td>
                     <td class="val-prev-balance">${balanceDisplay}</td>
-                    <td>${prevBalance > 0 ? '<span class="owes">Outstanding</span>' : '<span style="color:#27ae60;">Settled ✓</span>'}</td>
-                    ${actionButtonHtml}
+                    ${paymentStatusCell}
                 `;
                 prevBalanceBody.appendChild(row);
             });
