@@ -1286,7 +1286,6 @@
 
             currentY += 8;
 
-            // Fetch summary values from DOM elements
             const householdTotal = document.getElementById('household-total').innerText;
             const householdShare = document.getElementById('household-share').innerText;
             const shawTotal = document.getElementById('shaw-total').innerText;
@@ -1386,12 +1385,10 @@
                 currentY += 6;
             }
 
-            // 1. Rent & Utility Breakdown Table
             const breakdownHeaders = ["Person / Unit", "Utility Shares", "Rent Share", "Total Payable", "Status"];
             const breakdownRows = getTableData('spending-breakdown-list');
             drawTable("1. Rent & Utility Breakdown (Payable to Jaimin)", breakdownHeaders, breakdownRows);
 
-            // 2. Internal Transfers
             const transfersListEl = document.getElementById('transfers-list');
             if (transfersListEl && currentY < 260) {
                 doc.setFont("helvetica", "bold");
@@ -1409,12 +1406,10 @@
                 currentY += 6;
             }
 
-            // 3. Individual Balances Table
             const settlementHeaders = ["Person / Unit", "Total Paid", "Target Share", "Net Balance", "Status"];
             const settlementRows = getTableData('settlement-list');
             drawTable("3. Individual Balances & Settlement Summary", settlementHeaders, settlementRows);
 
-            // 4. Previous Month Unpaid Balances
             const prevHeaders = ["Person / Unit", "Previous Month Due", "Payment Status"];
             const prevRows = getTableData('prev-balance-list');
             drawTable("4. Previous Month Unpaid Balances", prevHeaders, prevRows);
