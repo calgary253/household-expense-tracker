@@ -271,7 +271,7 @@
                                 <th>Total Paid</th>
                                 <th>Target Share</th>
                                 <th>Net Balance</th>
-                                <th>Status</th>
+                                <th>Payment Status</th>
                             </tr>
                         </thead>
                         <tbody id="settlement-list"></tbody>
@@ -633,6 +633,36 @@
                 computeAndRenderPersonalSummary();
                 checkAndToggleReportVisibility();
             }
+        }
+
+        async function promptHouseholdPayment(month, unitKey, fullDueAmount) {
+            const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+            if (!isAdmin && !isJaimin && !allowedUsersForUnit.includes(currentUser)) {
+                alert("You do not have permission to update payment status for this unit.");
+                return;
+            }
+
+            if (!monthlyPayments.householdPaid) monthlyPayments.householdPaid = {};
+            if (!monthlyPayments.householdPaid[month]) monthlyPayments.householdPaid[month] = {};
+
+            const currentPaidVal = monthlyPayments.householdPaid[month][unitKey];
+            let currentPaidAmount = 0;
+            if (currentPaidVal === true) currentPaidAmount = fullDueAmount;
+            else if (typeof currentPaidVal === 'number') currentPaidAmount = currentPaidVal;
+
+            const inputVal = prompt(`Enter custom amount paid for household balance (Total Due: $${fullDueAmount.toFixed(2)}):`, currentPaidAmount.toFixed(2));
+            if (inputVal === null) return;
+
+            const customAmount = parseFloat(inputVal);
+            if (isNaN(customAmount) || customAmount < 0) {
+                alert("Please enter a valid amount.");
+                return;
+            }
+
+            monthlyPayments.householdPaid[month][unitKey] = customAmount;
+
+            calculateAndShowReport();
+            await saveExpensesToCloud();
         }
 
         async function promptPrevBalancePayment(month, unitKey, fullDueAmount) {
@@ -1105,27 +1135,31 @@
                     paidAmount = recordVal;
                 }
 
-                let statusClass = '';
-                let statusText = '';
-                let formattedNet = '';
+                const isCreditor = net >= 0;
+                const balanceVal = Math.abs(net);
+                const remainingVal = isCreditor ? (balanceVal - paidAmount) : (balanceVal - paidAmount);
+                const isFullyPaid = balanceVal === 0 || (remainingVal <= 0.005);
 
-                if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
-                    statusClass = 'gets-back';
-                    statusText = 'Paid & Settled ✓';
-                    formattedNet = `$0.00`;
-                } else if (net >= 0) {
-                    const remainingGet = net - paidAmount;
-                    statusClass = 'gets-back';
-                    statusText = paidAmount > 0 ? `Gets back remaining $${remainingGet.toFixed(2)} (Partial Paid)` : `Gets back $${net.toFixed(2)} (Unpaid)`;
-                    formattedNet = `$${remainingGet.toFixed(2)}`;
+                let actionCell = '';
+                const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+                const canEditHousehold = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
+
+                if (canEditHousehold) {
+                    const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
+                    let btnText = isFullyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Update Payment)` : 'Enter Payment');
+                    actionCell = `
+                        <td>
+                            <button class="btn-action ${btnClass}" 
+                                    onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${balanceVal})">
+                                ${btnText}
+                            </button>
+                        </td>`;
                 } else {
-                    const totalOwed = Math.abs(net);
-                    const remainingDebt = totalOwed - paidAmount;
-                    statusClass = 'owes';
-                    statusText = paidAmount > 0 ? `Owes remaining $${remainingDebt.toFixed(2)} (Partial Paid)` : `Owes $${totalOwed.toFixed(2)} (Unpaid)`;
-                    formattedNet = `-$${remainingDebt.toFixed(2)}`;
+                    actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${balanceVal.toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
                 }
 
+                let statusClass = isCreditor ? 'gets-back' : 'owes';
+                let formattedNet = isCreditor ? `$${net.toFixed(2)}` : `-$${Math.abs(net).toFixed(2)}`;
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
                 const row = document.createElement('tr');
@@ -1133,8 +1167,8 @@
                     <td><strong>${displayName}</strong></td>
                     <td class="val-out-of-pocket">$${paid.toFixed(2)}</td>
                     <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
-                    <td class="${statusClass}">${formattedNum(net)}</td>
-                    <td class="${statusClass}">${statusText}</td>
+                    <td class="${statusClass}">${formattedNet}</td>
+                    ${actionCell}
                 `;
                 settlementBody.appendChild(row);
             });
@@ -1185,10 +1219,6 @@
                 `;
                 prevBalanceBody.appendChild(row);
             });
-        }
-
-        function formattedNum(netVal) {
-            return (netVal >= 0 ? `$${netVal.toFixed(2)}` : `-$${Math.abs(netVal).toFixed(2)}`);
         }
 
         function exportToCSV() {
