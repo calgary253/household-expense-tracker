@@ -1135,37 +1135,42 @@
                     paidAmount = recordVal;
                 }
 
-                // UPDATED LOGIC: Adjusted net balance display considering payments made
                 let adjustedNet = net;
                 if (net < 0) {
-                    // For those who owe money, paying reduces the negative balance closer to 0
                     adjustedNet = net + paidAmount;
-                    if (adjustedNet > 0) adjustedNet = 0; // Cap at 0 if overpaid
+                    if (adjustedNet > 0) adjustedNet = 0;
                 } else if (net > 0) {
-                    // For those who are owed money, getting paid reduces what they are owed closer to 0
                     adjustedNet = net - paidAmount;
                     if (adjustedNet < 0) adjustedNet = 0;
                 }
 
-                const isCreditor = net >= 0;
+                const isOwing = adjustedNet < -0.005;
                 const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
 
                 let actionCell = '';
-                const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
-                const canEditHousehold = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
+                
+                if (isOwing) {
+                    // Only show the button/payment option for those who are owing
+                    const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+                    const canEditHousehold = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
 
-                if (canEditHousehold) {
-                    const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
-                    let btnText = isFullyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Update Payment)` : 'Enter Payment');
-                    actionCell = `
-                        <td>
-                            <button class="btn-action ${btnClass}" 
-                                    onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
-                                ${btnText}
-                            </button>
-                        </td>`;
+                    if (canEditHousehold) {
+                        const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
+                        let btnText = isFullyPaid ? 'Paid & Settled ✓' : (paidAmount > 0 ? `Paid $${paidAmount.toFixed(2)} (Update Payment)` : 'Enter Payment');
+                        actionCell = `
+                            <td>
+                                <button class="btn-action ${btnClass}" 
+                                        onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
+                                    ${btnText}
+                                </button>
+                            </td>`;
+                    } else {
+                        actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${Math.abs(net).toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
+                    }
                 } else {
-                    actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${Math.abs(net).toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
+                    // For creditors (gets back), display "Gets Back: $X.XX" instead of a button
+                    let getBackAmount = adjustedNet > 0 ? adjustedNet : net;
+                    actionCell = `<td><span class="gets-back">Gets Back: $${getBackAmount.toFixed(2)}</span></td>`;
                 }
 
                 let statusClass = adjustedNet >= 0 ? 'gets-back' : 'owes';
