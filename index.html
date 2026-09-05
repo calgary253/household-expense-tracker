@@ -110,6 +110,7 @@
 
         .owes { color: #c0392b; font-weight: bold; }
         .gets-back { color: #27ae60; font-weight: bold; }
+        .val-net-positive { color: #27ae60; font-weight: bold; }
         .landlord-pay { color: #8e44ad; font-weight: bold; }
         .val-out-of-pocket { color: #2980b9; font-weight: bold; }
         .val-share-owed { color: #d35400; font-weight: bold; }
@@ -1132,7 +1133,7 @@
                 }
 
                 const isOwing = adjustedNet < -0.005;
-                const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
+                const isFullyPaid = Math.abs(adjustedNet) <= 0.005 || net >= -0.005;
 
                 let actionCell = '';
                 
@@ -1154,12 +1155,39 @@
                         actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${Math.abs(net).toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
                     }
                 } else {
-                    let getBackAmount = adjustedNet > 0 ? adjustedNet : net;
-                    actionCell = `<td><span class="gets-back">Gets Back: $${getBackAmount.toFixed(2)}</span></td>`;
+                    if (Math.abs(adjustedNet) <= 0.005 && net < -0.005) {
+                        const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+                        const canEditHousehold = isAdmin || isJaimin || allowedUsersForUnit.includes(currentUser);
+                        if (canEditHousehold) {
+                            actionCell = `
+                                <td>
+                                    <button class="btn-action btn-paid" 
+                                            onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
+                                        Paid & Settled ✓
+                                    </button>
+                                </td>`;
+                        } else {
+                            actionCell = `<td><span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span></td>`;
+                        }
+                    } else {
+                        let getBackAmount = adjustedNet > 0 ? adjustedNet : net;
+                        actionCell = `<td><span class="gets-back">Gets Back: $${getBackAmount.toFixed(2)}</span></td>`;
+                    }
                 }
 
-                let statusClass = adjustedNet >= 0 ? 'gets-back' : 'owes';
-                let formattedNet = adjustedNet >= 0 ? `$${adjustedNet.toFixed(2)}` : `-$${Math.abs(adjustedNet).toFixed(2)}`;
+                let statusClass = '';
+                let formattedNet = '';
+                if (Math.abs(adjustedNet) <= 0.005) {
+                    statusClass = 'val-net-positive';
+                    formattedNet = '$0.00';
+                } else if (adjustedNet > 0) {
+                    statusClass = 'gets-back';
+                    formattedNet = `$${adjustedNet.toFixed(2)}`;
+                } else {
+                    statusClass = 'owes';
+                    formattedNet = `-$${Math.abs(adjustedNet).toFixed(2)}`;
+                }
+
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
                 const row = document.createElement('tr');
