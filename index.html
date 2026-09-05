@@ -1135,10 +1135,20 @@
                     paidAmount = recordVal;
                 }
 
+                // UPDATED LOGIC: Adjusted net balance display considering payments made
+                let adjustedNet = net;
+                if (net < 0) {
+                    // For those who owe money, paying reduces the negative balance closer to 0
+                    adjustedNet = net + paidAmount;
+                    if (adjustedNet > 0) adjustedNet = 0; // Cap at 0 if overpaid
+                } else if (net > 0) {
+                    // For those who are owed money, getting paid reduces what they are owed closer to 0
+                    adjustedNet = net - paidAmount;
+                    if (adjustedNet < 0) adjustedNet = 0;
+                }
+
                 const isCreditor = net >= 0;
-                const balanceVal = Math.abs(net);
-                const remainingVal = isCreditor ? (balanceVal - paidAmount) : (balanceVal - paidAmount);
-                const isFullyPaid = balanceVal === 0 || (remainingVal <= 0.005);
+                const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
 
                 let actionCell = '';
                 const allowedUsersForUnit = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
@@ -1150,16 +1160,16 @@
                     actionCell = `
                         <td>
                             <button class="btn-action ${btnClass}" 
-                                    onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${balanceVal})">
+                                    onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">
                                 ${btnText}
                             </button>
                         </td>`;
                 } else {
-                    actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${balanceVal.toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
+                    actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)} / $${Math.abs(net).toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
                 }
 
-                let statusClass = isCreditor ? 'gets-back' : 'owes';
-                let formattedNet = isCreditor ? `$${net.toFixed(2)}` : `-$${Math.abs(net).toFixed(2)}`;
+                let statusClass = adjustedNet >= 0 ? 'gets-back' : 'owes';
+                let formattedNet = adjustedNet >= 0 ? `$${adjustedNet.toFixed(2)}` : `-$${Math.abs(adjustedNet).toFixed(2)}`;
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
 
                 const row = document.createElement('tr');
