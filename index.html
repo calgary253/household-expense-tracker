@@ -6,6 +6,8 @@
     <title>253 Herron Mews Basement Household Expense Tracker</title>
     <!-- jsPDF Library for Client-Side PDF Generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF AutoTable Plugin for Professional Formatted Tables -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
     <style>
         /* Global Reset & Base Styles */
         * {
@@ -1263,62 +1265,50 @@
             }
 
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+
+            const primaryColor = [44, 62, 80];   // Deep Blue (#2c3e50)
+            const secondaryColor = [52, 152, 219]; // Accent Blue (#3498db)
+            const darkNeutral = [51, 51, 51];     // Text Dark (#333)
+            const lightNeutral = [245, 247, 250]; // Light Background Shading
 
             const [sYear, sMonth] = selectedMonth.split('-');
             const monthName = new Date(sYear, sMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
             let currentY = 15;
 
-            // Header Title
+            // --- Header Banner ---
+            doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+            doc.rect(0, 0, 210, 25, 'F');
+
+            doc.setTextColor(255, 255, 255);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(16);
-            doc.setTextColor(26, 37, 47);
-            doc.text("253 Herron Mews Basement Household", 14, currentY);
-            currentY += 7;
-            doc.text(`Monthly Settlement Report - ${monthName}`, 14, currentY);
-            
-            currentY += 10;
-            doc.setLineWidth(0.5);
-            doc.setLineDash([2, 2], 0);
-            doc.line(14, currentY, 196, currentY);
-            doc.setLineDash([], 0);
+            doc.text("HOUSEHOLD EXPENSE SETTLEMENT REPORT", 14, 16);
 
-            currentY += 8;
-
-            const householdTotal = document.getElementById('household-total').innerText;
-            const householdShare = document.getElementById('household-share').innerText;
-            const shawTotal = document.getElementById('shaw-total').innerText;
-            const shawShare = document.getElementById('shaw-share').innerText;
-            const enmaxTotal = document.getElementById('enmax-total').innerText;
-            const enmaxShare = document.getElementById('enmax-share').innerText;
-            const atcoTotal = document.getElementById('atco-total').innerText;
-            const atcoShare = document.getElementById('atco-share').innerText;
-            const utilityTotal = document.getElementById('utility-total').innerText;
-            const basementTotal = document.getElementById('basement-total').innerText;
-
+            // --- Sub-header & Metadata ---
+            currentY = 35;
+            doc.setTextColor(darkNeutral[0], darkNeutral[1], darkNeutral[2]);
             doc.setFont("helvetica", "bold");
             doc.setFontSize(12);
-            doc.text("Financial Overview & Totals", 14, currentY);
-            currentY += 6;
+            doc.text(`Billing Period: ${monthName}`, 14, currentY);
 
             doc.setFont("helvetica", "normal");
             doc.setFontSize(10);
-            const summaryLines = [
-                `General Household Total (4-Way Split): $${householdTotal}  (Share: $${householdShare})`,
-                `Shaw Internet Total (8-Way Split): $${shawTotal}  (Person Share: $${shawShare})`,
-                `Enmax Electricity Total (8-Way Split): $${enmaxTotal}  (Person Share: $${enmaxShare})`,
-                `Atco Gas Total (8-Way Split): $${atcoTotal}  (Person Share: $${atcoShare})`,
-                `Combined Utility Total: $${utilityTotal}  |  Basement Contribution (5/8th): $${basementTotal}`
-            ];
+            doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 150, currentY, { align: 'right' });
 
-            summaryLines.forEach(line => {
-                doc.text(line, 18, currentY);
-                currentY += 6;
-            });
+            currentY += 6;
+            doc.setLineWidth(0.5);
+            doc.setStrokeColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+            doc.line(14, currentY, 196, currentY);
 
-            currentY += 4;
+            currentY += 6;
 
+            // Helper to pull data from HTML table and clean tags/actions for PDF
             function getTableData(tableBodyId) {
                 const tbody = document.getElementById(tableBodyId);
                 if (!tbody) return [];
@@ -1328,92 +1318,137 @@
                     const cols = row.querySelectorAll('td');
                     if (cols.length > 0) {
                         let rowData = [];
-                        cols.forEach(col => rowData.push(col.innerText.trim().replace(/\s+/g, ' ')));
+                        cols.forEach((col, idx) => {
+                            // Exclude action buttons column if present
+                            if (cols.length === 5 && idx === 4 && col.querySelector('button')) {
+                                let btn = col.querySelector('button');
+                                if (btn.classList.contains('btn-paid')) rowData.push('Paid & Settled');
+                                else rowData.push('Unpaid');
+                            } else {
+                                let text = col.innerText.trim().replace(/\s+/g, ' ');
+                                // Clean up duplicate sub-status texts
+                                if (text.includes('Paid & Settled')) text = text.replace(/Paid & Settled.*/, 'Paid & Settled');
+                                rowData.push(text);
+                            }
+                        });
                         data.push(rowData);
                     }
                 });
                 return data;
             }
 
-            function drawTable(title, headers, rows) {
-                if (rows.length === 0) return;
+            // 1. Rent & Utility Breakdown Table
+            const breakdownHeaders = ['Person / Unit', 'Utility Shares', 'Rent Share', 'Total Payable', 'Status'];
+            const breakdownRows = getTableData('spending-breakdown-list');
 
-                if (currentY > 260) {
-                    doc.addPage();
-                    currentY = 20;
-                }
-
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(11);
-                doc.setTextColor(26, 37, 47);
-                doc.text(title, 14, currentY);
-                currentY += 6;
-
-                doc.setFillColor(248, 249, 250);
-                doc.rect(14, currentY, 182, 7, 'F');
-                doc.setFont("helvetica", "bold");
-                doc.setFontSize(9);
-                
-                let colWidths = [50, 35, 35, 32, 30]; 
-                if (headers.length === 3) colWidths = [70, 72, 40];
-                if (headers.length === 5) colWidths = [50, 35, 35, 32, 30];
-
-                let startX = 16;
-                headers.forEach((header, idx) => {
-                    doc.text(header, startX, currentY + 5);
-                    startX += colWidths[idx] || 35;
+            if (breakdownRows.length > 0) {
+                doc.autoTable({
+                    startY: currentY,
+                    head: [breakdownHeaders],
+                    body: breakdownRows,
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    columnStyles: {
+                        0: { halign: 'left', fontStyle: 'bold' },
+                        1: { halign: 'right' },
+                        2: { halign: 'right' },
+                        3: { halign: 'right', fontStyle: 'bold' },
+                        4: { halign: 'center' }
+                    },
+                    margin: { left: 14, right: 14 }
                 });
-                currentY += 7;
-
-                doc.setFont("helvetica", "normal");
-                rows.forEach(row => {
-                    if (currentY > 275) {
-                        doc.addPage();
-                        currentY = 20;
-                    }
-                    startX = 16;
-                    row.forEach((cellText, idx) => {
-                        let cleanText = cellText.split('\n')[0];
-                        if (cleanText.includes('Paid & Settled')) cleanText = 'Paid & Settled';
-                        if (cleanText.includes('Unpaid')) cleanText = 'Unpaid';
-                        
-                        doc.text(cleanText, startX, currentY + 5, { maxWidth: (colWidths[idx] || 35) - 4 });
-                        startX += colWidths[idx] || 35;
-                    });
-                    currentY += 7;
-                });
-                currentY += 6;
+                currentY = doc.lastAutoTable.finalY + 10;
             }
 
-            const breakdownHeaders = ["Person / Unit", "Utility Shares", "Rent Share", "Total Payable", "Status"];
-            const breakdownRows = getTableData('spending-breakdown-list');
-            drawTable("1. Rent & Utility Breakdown (Payable to Jaimin)", breakdownHeaders, breakdownRows);
-
+            // 2. Internal Household Transfers Section
             const transfersListEl = document.getElementById('transfers-list');
-            if (transfersListEl && currentY < 260) {
+            if (transfersListEl) {
+                if (currentY > 250) { doc.addPage(); currentY = 20; }
+
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(11);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                 doc.text("2. Internal Household Transfers (Groceries & Shared)", 14, currentY);
                 currentY += 6;
 
                 doc.setFont("helvetica", "normal");
                 doc.setFontSize(9);
+                doc.setTextColor(darkNeutral[0], darkNeutral[1], darkNeutral[2]);
+                
                 const transferItems = transfersListEl.querySelectorAll('li');
                 transferItems.forEach(li => {
                     doc.text(`• ${li.innerText}`, 18, currentY);
                     currentY += 5;
                 });
-                currentY += 6;
+                currentY += 8;
             }
 
-            const settlementHeaders = ["Person / Unit", "Total Paid", "Target Share", "Net Balance", "Status"];
+            // 3. Individual Balances & Settlement Summary Table
+            const settlementHeaders = ['Person / Unit', 'Total Paid', 'Target Share', 'Net Balance', 'Status'];
             const settlementRows = getTableData('settlement-list');
-            drawTable("3. Individual Balances & Settlement Summary", settlementHeaders, settlementRows);
 
-            const prevHeaders = ["Person / Unit", "Previous Month Due", "Payment Status"];
+            if (settlementRows.length > 0) {
+                if (currentY > 240) { doc.addPage(); currentY = 20; }
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.text("3. Individual Balances & Settlement Summary", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [settlementHeaders],
+                    body: settlementRows,
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    columnStyles: {
+                        0: { halign: 'left', fontStyle: 'bold' },
+                        1: { halign: 'right' },
+                        2: { halign: 'right' },
+                        3: { halign: 'right', fontStyle: 'bold' },
+                        4: { halign: 'center' }
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+            }
+
+            // 4. Previous Month Unpaid Balances Table
+            const prevHeaders = ['Person / Unit', 'Previous Month Due', 'Payment Status'];
             const prevRows = getTableData('prev-balance-list');
-            drawTable("4. Previous Month Unpaid Balances", prevHeaders, prevRows);
 
+            if (prevRows.length > 0) {
+                if (currentY > 240) { doc.addPage(); currentY = 20; }
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.text("4. Previous Month Unpaid Balances", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [prevHeaders],
+                    body: prevRows,
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold', halign: 'left' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    columnStyles: {
+                        0: { halign: 'left', fontStyle: 'bold' },
+                        1: { halign: 'right', fontStyle: 'bold' },
+                        2: { halign: 'center' }
+                    },
+                    margin: { left: 14, right: 14 }
+                });
+            }
+
+            // Save PDF Report
             doc.save(`Household_Expense_Report_${selectedMonth}.pdf`);
         }
 
