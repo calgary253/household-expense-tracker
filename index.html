@@ -681,7 +681,7 @@
             const currentPaidVal = monthlyPayments.landlordPayments[month][unitKey];
             let currentPaidAmount = 0;
             if (currentPaidVal === true) currentPaidAmount = fullDueAmount;
-            else if (typeof currentPaidVal === 'number') currentPaidAmount = fullDueAmount; // or whatever was paid
+            else if (typeof currentPaidVal === 'number') currentPaidAmount = currentPaidVal;
 
             const inputVal = prompt(`Enter custom amount paid to Jaimin (Total Due: $${fullDueAmount.toFixed(2)}):`, currentPaidAmount.toFixed(2));
             if (inputVal === null) return;
@@ -725,7 +725,6 @@
             calculateSettlementForMonth(selectedMonth);
         }
 
-        // Helper to find all distinct months present in expenses or payment records
         function getAllTrackedMonths() {
             let monthSet = new Set();
             expenses.forEach(e => {
@@ -762,15 +761,12 @@
 
             let landlordKey = (currentUser === 'Biren' || currentUser === 'Manali') ? 'Biren & Manali' : ((currentUser === 'Akshay' || currentUser === 'Kunjalbhabhi') ? 'Akshay & Kunjal' : currentUser);
 
-            // Compute cumulative unpaid landlord rent/utilities across all tracked past months
             let allMonths = getAllTrackedMonths();
             let currentActiveMonth = getLocalMonthString();
             
             let totalUnpaidLandlordDebt = 0;
-            let landlordBreakdownMonths = [];
 
             allMonths.forEach(m => {
-                // Don't evaluate current active month for backlog unless wanted, or evaluate all up to current
                 if (m >= currentActiveMonth) return;
 
                 let mExpenses = expenses.filter(e => !e.archived && e.date && e.date.startsWith(m));
@@ -803,7 +799,6 @@
                 }
             });
 
-            // Compute cumulative household debts across all past months
             let totalUnpaidHouseholdDebt = 0;
             allMonths.forEach(m => {
                 if (m >= currentActiveMonth) return;
@@ -967,7 +962,6 @@
             document.getElementById('utility-total').innerText = utilityTotal.toFixed(2);
             document.getElementById('basement-total').innerText = basementTotalContribution.toFixed(2);
 
-            // 1. Rent & Utility Breakdown Table
             const spendingBody = document.getElementById('spending-breakdown-list');
             spendingBody.innerHTML = '';
 
@@ -1044,20 +1038,15 @@
                     paidAmount = recordVal;
                 }
 
-                let isSettledCompletely = false;
                 if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
-                    isSettledCompletely = true;
+                    // Fully settled
                 } else if (net >= 0) {
                     const remainingGet = net - paidAmount;
-                    if (remainingGet > 0.005) {
-                        creditors.push({ person: unitKey, amount: remainingGet });
-                    }
+                    creditors.push({ person: unitKey, amount: remainingGet });
                 } else {
                     const totalOwed = Math.abs(net);
                     const remainingDebt = totalOwed - paidAmount;
-                    if (remainingDebt > 0.005) {
-                        debtors.push({ person: unitKey, amount: remainingDebt });
-                    }
+                    debtors.push({ person: unitKey, amount: remainingDebt });
                 }
             });
 
@@ -1098,7 +1087,6 @@
                 });
             }
 
-            // 3. Individual Balances & Settlement Summary Table
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
@@ -1118,10 +1106,8 @@
                 let statusClass = '';
                 let statusText = '';
                 let formattedNet = '';
-                let isSettledCompletely = false;
 
                 if ((net >= 0 && paidAmount >= net - 0.005) || (net < 0 && paidAmount >= Math.abs(net) - 0.005)) {
-                    isSettledCompletely = true;
                     statusClass = 'gets-back';
                     statusText = 'Paid & Settled ✓';
                     formattedNet = `$0.00`;
@@ -1151,7 +1137,6 @@
                 settlementBody.appendChild(row);
             });
 
-            // 4. Previous Month Unpaid Balances Table
             const prevBalanceBody = document.getElementById('prev-balance-list');
             prevBalanceBody.innerHTML = '';
 
