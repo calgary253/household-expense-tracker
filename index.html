@@ -574,6 +574,7 @@
 
             monthlyPayments.householdPaid[month][unitKey] = customAmount;
             calculateAndShowReport();
+            computeAndRenderPersonalSummary();
             await saveExpensesToCloud();
         }
 
@@ -596,6 +597,7 @@
 
             monthlyPayments.householdPaid[prevMonth][unitKey] = customAmount;
             calculateAndShowReport();
+            computeAndRenderPersonalSummary();
             await saveExpensesToCloud();
         }
 
@@ -617,6 +619,7 @@
 
             monthlyPayments.landlordPayments[month][unitKey] = customAmount;
             calculateAndShowReport();
+            computeAndRenderPersonalSummary();
             await saveExpensesToCloud();
         }
 
@@ -691,12 +694,76 @@
                 if (totalDueJaimin - paidAmount > 0.005) totalUnpaidLandlordDebt += (totalDueJaimin - paidAmount);
             });
 
+            // Compute current active month cumulative internal household standing for userUnitKey
+            let currentMonth = document.getElementById('view-month-select')?.value || currentActiveMonth;
+            let mExpenses = expenses.filter(e => e.date && e.date.startsWith(currentMonth));
+            let householdTotal = 0;
+            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+            
+            mExpenses.forEach(item => {
+                if (!['shaw', 'enmax', 'atco'].includes(item.category)) {
+                    householdTotal += item.amount;
+                    if (item.paidBy === "Biren" || item.paidBy === "Manali") unitHouseholdSpent["Biren"] += item.amount;
+                    else if (item.paidBy === "Biju") unitHouseholdSpent["Biju"] += item.amount;
+                    else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                }
+            });
+
+            const householdSharePerShare = householdTotal / 4;
+            const unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            
+            let householdTransfersText = "";
+            if (householdTotal > 0) {
+                let debtors = [], creditors = [];
+                ["Biren", "Akshay & Kunjalbhabhi", "Biju"].forEach(uk => {
+                    const paid = unitHouseholdSpent[uk] || 0;
+                    const targetShare = householdSharePerShare * unitShareCounts[uk];
+                    const net = paid - targetShare;
+                    const recordVal = monthlyPayments.householdPaid?.[currentMonth]?.[uk];
+                    let paidAmount = (recordVal === true) ? Math.abs(net) : (typeof recordVal === 'number' ? recordVal : 0);
+
+                    if (net >= 0 && paidAmount < net - 0.005) creditors.push({ person: uk, amount: net - paidAmount });
+                    else if (net < 0 && paidAmount < Math.abs(net) - 0.005) debtors.push({ person: uk, amount: Math.abs(net) - paidAmount });
+                });
+
+                let tempDebtors = JSON.parse(JSON.stringify(debtors));
+                let tempCreditors = JSON.parse(JSON.stringify(creditors));
+                let userTransfers = [];
+
+                while (tempDebtors.length > 0 && tempCreditors.length > 0) {
+                    let debtor = tempDebtors[0], creditor = tempCreditors[0];
+                    let transferAmount = Math.min(debtor.amount, creditor.amount);
+                    
+                    if (debtor.person === userUnitKey) {
+                        const toName = creditor.person === "Biren" ? "Biren & Manali" : (creditor.person === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : creditor.person);
+                        userTransfers.push(`You owe <strong>${toName}</strong>: <span class="owes">$${transferAmount.toFixed(2)}</span>`);
+                    } else if (creditor.person === userUnitKey) {
+                        const fromName = debtor.person === "Biren" ? "Biren & Manali" : (debtor.person === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : debtor.person);
+                        userTransfers.push(`<strong>${fromName}</strong> owes you: <span class="gets-back">+$${transferAmount.toFixed(2)}</span>`);
+                    }
+
+                    debtor.amount -= transferAmount;
+                    creditor.amount -= transferAmount;
+                    if (debtor.amount < 0.01) tempDebtors.shift();
+                    if (creditor.amount < 0.01) tempCreditors.shift();
+                }
+
+                if (userTransfers.length > 0) {
+                    householdTransfersText = `<p>🛒 <strong>Household Standing (${currentMonth}):</strong> ${userTransfers.join(' | ')}</p>`;
+                } else {
+                    householdTransfersText = `<p>🛒 <strong>Household Standing (${currentMonth}):</strong> <span class="gets-back">All settled up for this month ✓</span></p>`;
+                }
+            } else {
+                householdTransfersText = `<p>🛒 <strong>Household Standing (${currentMonth}):</strong> No household expenses logged yet.</p>`;
+            }
+
             let html = '';
             if (totalUnpaidLandlordDebt > 0.005) {
                 html += `<p>⚠️ <strong>Past Rent & Utilities Owed to Jaimin:</strong> <span class="owes">-$${totalUnpaidLandlordDebt.toFixed(2)}</span></p>`;
             } else {
                 html += `<p>✅ <strong>Rent & Utilities:</strong> <span class="gets-back">All past dues settled up ✓</span></p>`;
             }
+            html += householdTransfersText;
             container.innerHTML = html;
         }
 
@@ -902,6 +969,8 @@
                 `;
                 prevBalanceBody.appendChild(row);
             });
+
+            computeAndRenderPersonalSummary();
         }
 
         async function exportToPDF() {
