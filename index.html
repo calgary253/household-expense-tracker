@@ -900,41 +900,6 @@
                 const net = paid - targetShare;
                 const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[unitKey];
                 let paidAmount = (recordVal === true) ? Math.abs(net) : (typeof recordVal === 'number' ? recordVal : 0);
-
-                if (net >= 0 && paidAmount < net - 0.005) creditors.push({ person: unitKey, amount: net - paidAmount });
-                else if (net < 0 && paidAmount < Math.abs(net) - 0.005) debtors.push({ person: unitKey, amount: Math.abs(net) - paidAmount });
-            });
-
-            let tempDebtors = JSON.parse(JSON.stringify(debtors));
-            let tempCreditors = JSON.parse(JSON.stringify(creditors));
-            let transferListDetailed = [];
-
-            while (tempDebtors.length > 0 && tempCreditors.length > 0) {
-                let debtor = tempDebtors[0], creditor = tempCreditors[0];
-                let transferAmount = Math.min(debtor.amount, creditor.amount);
-                transferListDetailed.push({ from: debtor.person, to: creditor.person, amount: transferAmount });
-                debtor.amount -= transferAmount;
-                creditor.amount -= transferAmount;
-                if (debtor.amount < 0.01) tempDebtors.shift();
-                if (creditor.amount < 0.01) tempCreditors.shift();
-            }
-
-            const transfersList = document.getElementById('transfers-list');
-            transfersList.innerHTML = transferListDetailed.length === 0 ? '<li>Everyone is settled up equally for current household expenses!</li>' : transferListDetailed.map(t => {
-                const fName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
-                const tName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
-                return `<li><strong>${fName}</strong> Pay <strong>${tName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span></li>`;
-            }).join('');
-
-            const settlementBody = document.getElementById('settlement-list');
-            settlementBody.innerHTML = '';
-
-            householdUnits.forEach(unitKey => {
-                const paid = unitHouseholdSpent[unitKey] || 0;
-                const targetShare = householdSharePerShare * unitShareCounts[unitKey];
-                const net = paid - targetShare;
-                const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[unitKey];
-                let paidAmount = (recordVal === true) ? Math.abs(net) : (typeof recordVal === 'number' ? recordVal : 0);
                 
                 let adjustedNet = net;
                 if (net < 0) {
@@ -965,6 +930,27 @@
                 `;
                 settlementBody.appendChild(row);
             });
+
+            let tempDebtors = JSON.parse(JSON.stringify(debtors));
+            let tempCreditors = JSON.parse(JSON.stringify(creditors));
+            let transferListDetailed = [];
+
+            while (tempDebtors.length > 0 && tempCreditors.length > 0) {
+                let debtor = tempDebtors[0], creditor = tempCreditors[0];
+                let transferAmount = Math.min(debtor.amount, creditor.amount);
+                transferListDetailed.push({ from: debtor.person, to: creditor.person, amount: transferAmount });
+                debtor.amount -= transferAmount;
+                creditor.amount -= transferAmount;
+                if (debtor.amount < 0.01) tempDebtors.shift();
+                if (creditor.amount < 0.01) tempCreditors.shift();
+            }
+
+            const transfersList = document.getElementById('transfers-list');
+            transfersList.innerHTML = transferListDetailed.length === 0 ? '<li>Everyone is settled up equally for current household expenses!</li>' : transferListDetailed.map(t => {
+                const fName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
+                const tName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
+                return `<li><strong>${fName}</strong> Pay <strong>${tName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span></li>`;
+            }).join('');
 
             // Previous Balances
             const prevBalanceBody = document.getElementById('prev-balance-list');
@@ -1031,7 +1017,6 @@
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
 
-                // --- EXTRACT & RENDER SUMMARY STATS BOX DIRECTLY FROM DOM ELEMENT VALUES ---
                 doc.setFillColor(248, 250, 252);
                 doc.setDrawColor(203, 213, 225);
                 doc.roundedRect(14, currentY, 182, 42, 2, 2, 'FD');
@@ -1046,13 +1031,11 @@
                 let col2ValX = 168;
                 let lineY = currentY + 7;
 
-                // Row 1
                 doc.text(`Total Gen. Household (4-Way):`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/sh)`, col1ValX - 10, lineY);
                 doc.text(`Combined Utility Total:`, col2LabelX, lineY);
                 doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
 
-                // Row 2
                 lineY += 7;
                 doc.text(`Shaw Internet Total (8-Way):`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('shaw-total').innerText} ($${document.getElementById('shaw-share').innerText}/sh)`, col1ValX - 10, lineY);
@@ -1061,18 +1044,15 @@
                 doc.text(`$${document.getElementById('basement-total').innerText}`, col2ValX, lineY);
                 doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
 
-                // Row 3
                 lineY += 7;
                 doc.text(`Enmax Electricity Total (8-Way):`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('enmax-total').innerText} ($${document.getElementById('enmax-share').innerText}/sh)`, col1ValX - 10, lineY);
 
-                // Row 4
                 lineY += 7;
                 doc.text(`Atco Gas Total (8-Way):`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('atco-total').innerText} ($${document.getElementById('atco-share').innerText}/sh)`, col1ValX - 10, lineY);
 
                 currentY += 50;
-                // --------------------------------------------------------------------------
 
                 function getTableData(tableBodyId) {
                     const tbody = document.getElementById(tableBodyId);
