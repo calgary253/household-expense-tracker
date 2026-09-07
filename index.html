@@ -51,7 +51,7 @@
         .landlord-badge { background-color: #9b59b6; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
 
         .form-group { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; }
-        input, select, button { padding: 10px 12px; font-size: 14px; border: 1px solid #ccd1d9; border-radius: 6px; box-sizing: border-box; }
+        input, select, button { padding: 10px 12px; font-size: 14px; border: 1px solid #ccd1d9; border-radius: 6px; box-sizing: border-box; height: 42px; }
         input, select { flex: 1; min-width: 140px; background-color: #fff; }
         
         /* Date input width constraint for desktop */
@@ -73,7 +73,7 @@
         .btn-export:hover { background-color: #117864; }
         .btn-pdf { background-color: #c0392b; }
         .btn-pdf:hover { background-color: #a93226; }
-        .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; }
+        .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; height: auto; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
         .btn-paid { background-color: #27ae60 !important; }
@@ -134,11 +134,17 @@
             .form-group { flex-direction: column; gap: 10px; }
             .form-group input, .form-group select, .form-group button { width: 100%; min-width: 100%; flex: none; box-sizing: border-box; }
             
-            /* Fix mobile date input alignment */
+            /* Fix mobile date input alignment & consistency */
             input[type="date"] {
                 flex: none;
                 width: 100%;
                 min-width: 100%;
+                appearance: none;
+                -webkit-appearance: none;
+                -moz-appearance: none;
+                padding: 10px 12px;
+                height: 42px;
+                box-sizing: border-box;
             }
             
             .filter-header { flex-direction: column; align-items: stretch; }
