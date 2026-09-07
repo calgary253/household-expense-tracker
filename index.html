@@ -58,6 +58,7 @@
         input[type="date"] {
             flex: 0 0 160px;
             min-width: 150px;
+            box-sizing: border-box;
         }
 
         input:focus, select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.15); }
@@ -137,6 +138,7 @@
             input[type="date"] {
                 flex: none;
                 width: 100%;
+                min-width: 100%;
             }
             
             .filter-header { flex-direction: column; align-items: stretch; }
@@ -930,7 +932,6 @@
                 
                 const allowedUsers = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
                 if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
-                    // FIX APPLIED HERE: properly assigns btn-paid when isFullyPaid is true
                     const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
                     actionCell = `<td><button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
                 }
