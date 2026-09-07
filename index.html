@@ -177,7 +177,6 @@
                     <label for="view-month-select"><strong>View Month:</strong> </label>
                     <select id="view-month-select" onchange="onMonthChange();" style="padding: 6px 10px; min-width: 150px;"></select>
                     <button class="btn-export" onclick="exportToCSV()" title="Download CSV for Selected Month">Export CSV</button>
-                    <button id="header-pdf-btn" class="btn-pdf" onclick="exportToPDF()" title="Download Settlement PDF Report for Selected Month" style="display: none;">Download Report PDF</button>
                 </div>
             </div>
 
@@ -199,6 +198,7 @@
             
             <div id="admin-month-filter" class="admin-filter-box" style="display: none;">
                 <button id="calc-btn" class="btn-calc" onclick="calculateAndShowReport()">Calculate & View Report on Screen</button>
+                <button id="header-pdf-btn" class="btn-pdf" onclick="exportToPDF()" title="Download Settlement PDF Report for Selected Month" style="display: none;">Download Report PDF</button>
             </div>
         </div>
 
@@ -318,6 +318,7 @@
                 document.getElementById('category').value = 'shaw';
                 document.getElementById('household-transfers-section').style.display = 'none';
                 document.getElementById('header-pdf-btn').style.display = 'inline-block';
+                document.getElementById('admin-month-filter').style.display = 'flex';
             } else {
                 document.getElementById('role-badge').innerHTML = '<span class="user-badge">PERSONAL ACCOUNT</span>';
                 document.querySelectorAll('.utility-option').forEach(opt => opt.remove());
@@ -906,8 +907,6 @@
         async function exportToPDF() {
             try {
                 const selectedMonth = document.getElementById('view-month-select').value;
-                
-                // Temporarily compute values in memory so we can export directly without forcing screen view
                 calculateSettlementForMonth(selectedMonth);
 
                 const { jsPDF } = window.jspdf;
@@ -921,7 +920,6 @@
                 const [sYear, sMonth] = selectedMonth.split('-');
                 const monthName = new Date(sYear, sMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-                // Header Banner
                 doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                 doc.rect(0, 0, 210, 25, 'F');
                 doc.setTextColor(255, 255, 255);
@@ -941,7 +939,7 @@
 
                 currentY += 6;
                 doc.setLineWidth(0.4);
-                doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]); // Fixed from setStrokeColor
+                doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
 
@@ -961,7 +959,6 @@
                     return data;
                 }
 
-                // 1. Rent & Utility Breakdown Table
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(11);
                 doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
@@ -980,7 +977,6 @@
                 });
                 currentY = doc.lastAutoTable.finalY + 10;
 
-                // 2. Transfers
                 const transfersListEl = document.getElementById('transfers-list');
                 if (transfersListEl) {
                     doc.setFont("helvetica", "bold");
@@ -996,7 +992,6 @@
                     currentY += 8;
                 }
 
-                // 3. Settlement Summary
                 if (currentY > 230) { doc.addPage(); currentY = 20; }
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(11);
@@ -1015,7 +1010,6 @@
                 });
                 currentY = doc.lastAutoTable.finalY + 10;
 
-                // 4. Previous Balances
                 if (currentY > 230) { doc.addPage(); currentY = 20; }
                 doc.setFont("helvetica", "bold");
                 doc.setFontSize(11);
