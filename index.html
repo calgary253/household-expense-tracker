@@ -1309,7 +1309,6 @@
 
                 currentY += 6;
 
-                // Helper to pull data from HTML table and clean tags/actions for PDF
                 function getTableData(tableBodyId) {
                     const tbody = document.getElementById(tableBodyId);
                     if (!tbody) return [];
@@ -1320,7 +1319,6 @@
                         if (cols.length > 0) {
                             let rowData = [];
                             cols.forEach((col, idx) => {
-                                // Exclude action buttons column if present
                                 if (cols.length === 5 && idx === 4 && col.querySelector('button')) {
                                     let btn = col.querySelector('button');
                                     if (btn.classList.contains('btn-paid')) rowData.push('Paid & Settled');
@@ -1448,7 +1446,6 @@
                     });
                 }
 
-                // Save PDF Report
                 doc.save(`Household_Expense_Report_${selectedMonth}.pdf`);
             } catch (err) {
                 console.error("PDF Generation Error:", err);
