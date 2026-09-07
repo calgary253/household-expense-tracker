@@ -930,9 +930,15 @@
                 const net = paid - targetShare;
                 const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[unitKey];
                 let paidAmount = (recordVal === true) ? Math.abs(net) : (typeof recordVal === 'number' ? recordVal : 0);
-                let adjustedNet = net < 0 ? Math.min(0, net + paidAmount) : Math.max(0, net - paidAmount);
+                
+                let adjustedNet = net;
+                if (net < 0) {
+                    adjustedNet = Math.min(0, net + paidAmount);
+                } else if (net > 0) {
+                    adjustedNet = Math.max(0, net - paidAmount);
+                }
 
-                const isFullyPaid = Math.abs(adjustedNet) <= 0.005 || net >= -0.005;
+                const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
                 let actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>'}</td>`;
                 
                 const allowedUsers = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
@@ -979,7 +985,7 @@
         async function exportToPDF() {
             try {
                 const selectedMonth = document.getElementById('view-month-select').value;
-                calculateSettlementFormonth = calculateSettlementForMonth(selectedMonth);
+                calculateSettlementForMonth(selectedMonth);
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -1015,45 +1021,47 @@
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
 
-                // --- EXTRACT & RENDER SUMMARY STATS BOX ---
+                // --- EXTRACT & RENDER SUMMARY STATS BOX (FIXED COORDS) ---
                 doc.setFillColor(248, 250, 252);
                 doc.setDrawColor(203, 213, 225);
-                doc.roundedRect(14, currentY, 182, 36, 2, 2, 'FD');
+                doc.roundedRect(14, currentY, 182, 42, 2, 2, 'FD');
 
                 doc.setFont("helvetica", "bold");
-                doc.setFontSize(9.5);
+                doc.setFontSize(9);
                 doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
                 
-                let col1X = 18;
-                let col2X = 110;
-                let lineY = currentY + 6;
+                let col1LabelX = 18;
+                let col1ValX = 78;
+                let col2LabelX = 115;
+                let col2ValX = 168;
+                let lineY = currentY + 7;
 
-                doc.text(`Total General Household (4-Way):`, col1X, lineY);
-                doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/share)`, col1X + 58, lineY);
-                
-                lineY += 6;
-                doc.text(`Shaw Internet Total (8-Way):`, col1X, lineY);
-                doc.text(`$${document.getElementById('shaw-total').innerText} ($${document.getElementById('shaw-share').innerText}/share)`, col1X + 58, lineY);
+                // Row 1
+                doc.text(`Total Gen. Household (4-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('household-total').innerText}`, col1ValX, lineY);
+                doc.text(`Combined Utility Total:`, col2LabelX, lineY);
+                doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
 
-                lineY += 6;
-                doc.text(`Enmax Electricity Total (8-Way):`, col1X, lineY);
-                doc.text(`$${document.getElementById('enmax-total').innerText} ($${document.getElementById('enmax-share').innerText}/share)`, col1X + 58, lineY);
-
-                lineY += 6;
-                doc.text(`Atco Gas Total (8-Way):`, col1X, lineY);
-                doc.text(`$${document.getElementById('atco-total').innerText} ($${document.getElementById('atco-share').innerText}/share)`, col1X + 58, lineY);
-
-                // Second column group inside summary box
-                lineY = currentY + 6;
-                doc.text(`Combined Utility Total:`, col2X, lineY);
-                doc.text(`$${document.getElementById('utility-total').innerText}`, col2X + 45, lineY);
-
-                lineY += 12;
-                doc.text(`Basement Contribution (5/8):`, col2X, lineY);
+                // Row 2
+                lineY += 7;
+                doc.text(`Shaw Internet Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('shaw-total').innerText}`, col1ValX, lineY);
+                doc.text(`Basement Contribution (5/8):`, col2LabelX, lineY);
                 doc.setTextColor(39, 174, 96);
-                doc.text(`$${document.getElementById('basement-total').innerText}`, col2X + 45, lineY);
+                doc.text(`$${document.getElementById('basement-total').innerText}`, col2ValX, lineY);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
 
-                currentY += 44;
+                // Row 3
+                lineY += 7;
+                doc.text(`Enmax Electricity Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('enmax-total').innerText}`, col1ValX, lineY);
+
+                // Row 4
+                lineY += 7;
+                doc.text(`Atco Gas Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('atco-total').innerText}`, col1ValX, lineY);
+
+                currentY += 50;
                 // ------------------------------------------
 
                 function getTableData(tableBodyId) {
