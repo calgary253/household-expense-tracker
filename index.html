@@ -947,7 +947,9 @@
                 
                 const allowedUsers = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
                 if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
-                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
+                    // FIXED: explicitly use btn-paid when fully settled so it renders green instead of red
+                    const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
+                    actionCell = `<td><button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
                 }
 
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
@@ -974,7 +976,8 @@
                 if (originalDebt > 0) {
                     const isPaid = prevBalance <= 0.005;
                     let actionLabel = isPaid ? 'Paid & Settled ✓' : `Pay $${prevBalance.toFixed(2)}`;
-                    paymentCell = `<td><button class="btn-action ${isPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">${actionLabel}</button></td>`;
+                    const btnClass = isPaid ? 'btn-paid' : 'btn-unpaid';
+                    paymentCell = `<td><button class="btn-action ${btnClass}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">${actionLabel}</button></td>`;
                 }
 
                 const row = document.createElement('tr');
