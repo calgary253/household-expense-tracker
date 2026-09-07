@@ -50,9 +50,16 @@
         .user-badge { background-color: #3498db; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
         .landlord-badge { background-color: #9b59b6; color: #fff; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: bold; letter-spacing: 0.5px; }
 
-        .form-group { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; }
+        .form-group { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 15px; align-items: center; }
         input, select, button { padding: 10px 12px; font-size: 14px; border: 1px solid #ccd1d9; border-radius: 6px; }
         input, select { flex: 1; min-width: 140px; background-color: #fff; }
+        
+        /* Fixed date input width constraint */
+        input[type="date"] {
+            flex: 0 0 160px;
+            min-width: 150px;
+        }
+
         input:focus, select:focus { outline: none; border-color: #3498db; box-shadow: 0 0 0 3px rgba(52,152,219,0.15); }
         
         button { background-color: #27ae60; color: white; border: none; cursor: pointer; font-weight: 600; transition: background-color 0.2s; }
@@ -125,6 +132,12 @@
             /* Enhanced Mobile UI for Submit Form */
             .form-group { flex-direction: column; gap: 10px; }
             .form-group input, .form-group select, .form-group button { width: 100%; min-width: 100%; flex: none; }
+            
+            /* Override explicit date width constraint on mobile stack */
+            input[type="date"] {
+                flex: none;
+                width: 100%;
+            }
             
             .filter-header { flex-direction: column; align-items: stretch; }
             .filter-header > div { display: flex; flex-direction: column; width: 100%; gap: 8px !important; }
@@ -893,6 +906,8 @@
             // Settlement & Transfers
             let debtors = [], creditors = [];
             const unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const settlementBody = document.getElementById('settlement-list');
+            settlementBody.innerHTML = '';
 
             householdUnits.forEach(unitKey => {
                 const paid = unitHouseholdSpent[unitKey] || 0;
@@ -918,6 +933,9 @@
                     const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
                     actionCell = `<td><button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
                 }
+
+                if (adjustedNet > 0.005) creditors.push({ person: unitKey, amount: adjustedNet });
+                else if (adjustedNet < -0.005) debtors.push({ person: unitKey, amount: Math.abs(adjustedNet) });
 
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
                 const row = document.createElement('tr');
