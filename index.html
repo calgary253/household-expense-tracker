@@ -1026,7 +1026,7 @@
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
 
-                // --- EXTRACT & RENDER SUMMARY STATS BOX ---
+                // --- EXTRACT & RENDER SUMMARY STATS BOX DIRECTLY FROM DOM ELEMENT VALUES ---
                 doc.setFillColor(248, 250, 252);
                 doc.setDrawColor(203, 213, 225);
                 doc.roundedRect(14, currentY, 182, 42, 2, 2, 'FD');
@@ -1043,14 +1043,14 @@
 
                 // Row 1
                 doc.text(`Total Gen. Household (4-Way):`, col1LabelX, lineY);
-                doc.text(`$${document.getElementById('household-total').innerText}`, col1ValX, lineY);
+                doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/sh)`, col1ValX - 10, lineY);
                 doc.text(`Combined Utility Total:`, col2LabelX, lineY);
                 doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
 
                 // Row 2
                 lineY += 7;
                 doc.text(`Shaw Internet Total (8-Way):`, col1LabelX, lineY);
-                doc.text(`$${document.getElementById('shaw-total').innerText}`, col1ValX, lineY);
+                doc.text(`$${document.getElementById('shaw-total').innerText} ($${document.getElementById('shaw-share').innerText}/sh)`, col1ValX - 10, lineY);
                 doc.text(`Basement Contribution (5/8):`, col2LabelX, lineY);
                 doc.setTextColor(39, 174, 96);
                 doc.text(`$${document.getElementById('basement-total').innerText}`, col2ValX, lineY);
@@ -1059,15 +1059,15 @@
                 // Row 3
                 lineY += 7;
                 doc.text(`Enmax Electricity Total (8-Way):`, col1LabelX, lineY);
-                doc.text(`$${document.getElementById('enmax-total').innerText}`, col1ValX, lineY);
+                doc.text(`$${document.getElementById('enmax-total').innerText} ($${document.getElementById('enmax-share').innerText}/sh)`, col1ValX - 10, lineY);
 
                 // Row 4
                 lineY += 7;
                 doc.text(`Atco Gas Total (8-Way):`, col1LabelX, lineY);
-                doc.text(`$${document.getElementById('atco-total').innerText}`, col1ValX, lineY);
+                doc.text(`$${document.getElementById('atco-total').innerText} ($${document.getElementById('atco-share').innerText}/sh)`, col1ValX - 10, lineY);
 
                 currentY += 50;
-                // ------------------------------------------
+                // --------------------------------------------------------------------------
 
                 function getTableData(tableBodyId) {
                     const tbody = document.getElementById(tableBodyId);
