@@ -979,7 +979,7 @@
         async function exportToPDF() {
             try {
                 const selectedMonth = document.getElementById('view-month-select').value;
-                calculateSettlementForMonth(selectedMonth);
+                calculateSettlementFormonth = calculateSettlementForMonth(selectedMonth);
 
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
@@ -1014,6 +1014,47 @@
                 doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
+
+                // --- EXTRACT & RENDER SUMMARY STATS BOX ---
+                doc.setFillColor(248, 250, 252);
+                doc.setDrawColor(203, 213, 225);
+                doc.roundedRect(14, currentY, 182, 36, 2, 2, 'FD');
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9.5);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                
+                let col1X = 18;
+                let col2X = 110;
+                let lineY = currentY + 6;
+
+                doc.text(`Total General Household (4-Way):`, col1X, lineY);
+                doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/share)`, col1X + 58, lineY);
+                
+                lineY += 6;
+                doc.text(`Shaw Internet Total (8-Way):`, col1X, lineY);
+                doc.text(`$${document.getElementById('shaw-total').innerText} ($${document.getElementById('shaw-share').innerText}/share)`, col1X + 58, lineY);
+
+                lineY += 6;
+                doc.text(`Enmax Electricity Total (8-Way):`, col1X, lineY);
+                doc.text(`$${document.getElementById('enmax-total').innerText} ($${document.getElementById('enmax-share').innerText}/share)`, col1X + 58, lineY);
+
+                lineY += 6;
+                doc.text(`Atco Gas Total (8-Way):`, col1X, lineY);
+                doc.text(`$${document.getElementById('atco-total').innerText} ($${document.getElementById('atco-share').innerText}/share)`, col1X + 58, lineY);
+
+                // Second column group inside summary box
+                lineY = currentY + 6;
+                doc.text(`Combined Utility Total:`, col2X, lineY);
+                doc.text(`$${document.getElementById('utility-total').innerText}`, col2X + 45, lineY);
+
+                lineY += 12;
+                doc.text(`Basement Contribution (5/8):`, col2X, lineY);
+                doc.setTextColor(39, 174, 96);
+                doc.text(`$${document.getElementById('basement-total').innerText}`, col2X + 45, lineY);
+
+                currentY += 44;
+                // ------------------------------------------
 
                 function getTableData(tableBodyId) {
                     const tbody = document.getElementById(tableBodyId);
