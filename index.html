@@ -65,11 +65,11 @@
         .btn-export:hover { background-color: #117864; }
         .btn-pdf { background-color: #c0392b; }
         .btn-pdf:hover { background-color: #a93226; }
-        .btn-action { padding: 5px 10px; font-size: 12px; margin-right: 4px; border-radius: 4px; }
+        .btn-action { padding: 6px 12px; font-size: 12px; margin-right: 4px; border-radius: 4px; }
         .btn-edit { background-color: #f39c12; }
         .btn-delete { background-color: #e74c3c; }
         .btn-paid { background-color: #27ae60 !important; }
-        .btn-unpaid { background-color: #e74c3c !important; }
+        .btn-unpaid { background-color: #c0392b !important; }
 
         .table-responsive {
             width: 100%;
@@ -867,11 +867,13 @@
                 const remainingDue = totalDueJaimin - paidAmount;
                 const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0);
 
-                let actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : (paidAmount > 0 ? `<span style="color:#e67e22; font-weight:bold;">Partial: $${paidAmount.toFixed(2)}</span>` : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>')}</td>`;
+                let actionLabel = isFullyPaid ? 'Paid & Settled ✓' : (remainingDue > 0 ? `Pay $${remainingDue.toFixed(2)}` : 'Enter Payment');
+                let actionCell = `<td><span class="${isFullyPaid ? 'gets-back' : 'pay-amt'}">${isFullyPaid ? 'Paid & Settled ✓' : `Owing: $${remainingDue.toFixed(2)}`}</span></td>`;
+                
                 const allowedUsers = rowInfo.key === 'Biren & Manali' ? ['Biren', 'Manali'] : (rowInfo.key === 'Akshay & Kunjal' ? ['Akshay', 'Kunjalbhabhi'] : [rowInfo.key]);
                 
                 if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
-                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptLandlordPayment('${selectedMonth}', '${rowInfo.key}', ${totalDueJaimin})">${isFullyPaid ? 'Paid & Settled ✓' : 'Enter Payment'}</button></td>`;
+                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptLandlordPayment('${selectedMonth}', '${rowInfo.key}', ${totalDueJaimin})">${actionLabel}</button></td>`;
                 }
 
                 const row = document.createElement('tr');
@@ -939,11 +941,13 @@
                 }
 
                 const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
-                let actionCell = `<td>${isFullyPaid ? '<span style="color:#27ae60; font-weight:bold;">Paid & Settled ✓</span>' : '<span style="color:#c0392b; font-weight:bold;">Unpaid</span>'}</td>`;
+                let owingAmount = Math.abs(adjustedNet);
+                let actionLabel = isFullyPaid ? 'Paid & Settled ✓' : (adjustedNet < 0 ? `Pay $${owingAmount.toFixed(2)}` : 'Paid & Settled ✓');
+                let actionCell = `<td><span class="${isFullyPaid ? 'gets-back' : 'pay-amt'}">${isFullyPaid ? 'Paid & Settled ✓' : `Owing: -$${owingAmount.toFixed(2)}`}</span></td>`;
                 
                 const allowedUsers = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
                 if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
-                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${isFullyPaid ? 'Paid & Settled ✓' : 'Enter Payment'}</button></td>`;
+                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
                 }
 
                 const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
@@ -969,7 +973,8 @@
                 let paymentCell = `<td><span style="color:#27ae60; font-weight:bold;">No Past Due ✓</span></td>`;
                 if (originalDebt > 0) {
                     const isPaid = prevBalance <= 0.005;
-                    paymentCell = `<td><button class="btn-action ${isPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">${isPaid ? 'Paid & Settled ✓' : 'Enter Payment'}</button></td>`;
+                    let actionLabel = isPaid ? 'Paid & Settled ✓' : `Pay $${prevBalance.toFixed(2)}`;
+                    paymentCell = `<td><button class="btn-action ${isPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">${actionLabel}</button></td>`;
                 }
 
                 const row = document.createElement('tr');
@@ -1021,7 +1026,7 @@
                 doc.line(14, currentY, 196, currentY);
                 currentY += 8;
 
-                // --- EXTRACT & RENDER SUMMARY STATS BOX (FIXED COORDS) ---
+                // --- EXTRACT & RENDER SUMMARY STATS BOX ---
                 doc.setFillColor(248, 250, 252);
                 doc.setDrawColor(203, 213, 225);
                 doc.roundedRect(14, currentY, 182, 42, 2, 2, 'FD');
