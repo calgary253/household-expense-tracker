@@ -182,7 +182,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" id="opt-household" selected>General Household (5-Way Split)</option>
+                    <option value="household" id="opt-household" selected>General Household (4-Way Split)</option>
                     <option value="shaw" class="utility-option">Shaw Internet (8-Way Split)</option>
                     <option value="enmax" class="utility-option">Enmax Electricity (8-Way Split)</option>
                     <option value="atco" class="utility-option">Atco Gas (8-Way Split)</option>
@@ -230,7 +230,7 @@
             <h2 id="report-title">Monthly Settlement Report (Basement)</h2>
             
             <div class="summary-box">
-                <p><strong>Total General Household (5-Way Split):</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share)</em></p>
+                <p><strong>Total General Household (4-Way Split):</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share)</em></p>
                 <hr style="border:0; border-top: 1px dashed #cbd5e1; margin: 12px 0;">
                 <p>🌐 <strong>Shaw Internet Total:</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / person share)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total:</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / person share)</em></p>
@@ -525,7 +525,7 @@
                 const row = document.createElement('tr');
                 let actionsCell = isAdmin ? `<td><button class="btn-action btn-edit" onclick="editExpense(${item.id})">Edit</button><button class="btn-action btn-delete" onclick="deleteExpense(${item.id})">Delete</button></td>` : '';
 
-                let categoryTag = '<span style="color:#2980b9;">Household (5-Way)</span>';
+                let categoryTag = '<span style="color:#2980b9;">Household (4-Way)</span>';
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet (8-Way)</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec (8-Way)</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas (8-Way)</span>';
@@ -733,8 +733,8 @@
                 }
             });
 
-            const householdSharePerShare = householdTotal / 5;
-            const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const householdSharePerShare = householdTotal / 4;
+            const unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
             
             let householdTransfersText = "";
             if (householdTotal > 0) {
@@ -820,8 +820,8 @@
                     }
                 });
 
-                const prevSharePerShare = prevTotal / 5;
-                const prevUnitTargetShares = { "Biren": prevSharePerShare * 2, "Akshay & Kunjalbhabhi": prevSharePerShare * 2, "Biju": prevSharePerShare };
+                const prevSharePerShare = prevTotal / 4;
+                const prevUnitTargetShares = { "Biren": prevSharePerShare, "Akshay & Kunjalbhabhi": prevSharePerShare * 2, "Biju": prevSharePerShare };
 
                 householdUnits.forEach(unitKey => {
                     const paid = prevSpent[unitKey] || 0;
@@ -865,7 +865,7 @@
                 }
             });
 
-            const householdSharePerShare = householdTotal / 5;
+            const householdSharePerShare = householdTotal / 4;
             const utilitySharePerPerson = (shawTotal + enmaxTotal + atcoTotal) / TOTAL_UTILITY_RESIDENTS;
             const basementTotalContribution = utilitySharePerPerson * 5;
 
@@ -913,7 +913,7 @@
 
             // Settlement & Transfers
             let debtors = [], creditors = [];
-            const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const unitShareCounts = { "Biren": 1, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
@@ -1057,7 +1057,7 @@
                 let col2ValX = 168;
                 let lineY = currentY + 7;
 
-                doc.text(`Total Gen. Household (5-Way):`, col1LabelX, lineY);
+                doc.text(`Total Gen. Household (4-Way):`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/sh)`, col1ValX - 10, lineY);
                 doc.text(`Combined Utility Total:`, col2LabelX, lineY);
                 doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
@@ -1145,3 +1145,57 @@
                     alternateRowStyles: { fillColor: lightNeutral },
                     margin: { left: 14, right: 14 }
                 });
+                currentY = doc.lastAutoTable.finalY + 10;
+
+                if (currentY > 230) { doc.addPage(); currentY = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text("4. Previous Month Unpaid Balances", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Person / Unit', 'Previous Month Due', 'Payment Status']],
+                    body: getTableData('prev-balance-list'),
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    margin: { left: 14, right: 14 }
+                });
+
+                doc.save(`Household_Expense_Report_${selectedMonth}.pdf`);
+            } catch (err) {
+                console.error("PDF Generation Error:", err);
+                alert("Failed to generate PDF report.");
+            }
+        }
+
+        function exportToCSV() {
+            const selectedMonth = document.getElementById('view-month-select').value;
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            if (monthExpenses.length === 0) {
+                alert('No expenses recorded for this month to export.');
+                return;
+            }
+
+            let csvContent = "Date,Paid By,Category,Description,Amount\n";
+            monthExpenses.forEach(e => {
+                const escapedDesc = e.description ? `"${e.description.replace(/"/g, '""')}"` : '""';
+                csvContent += `"${e.date}","${e.paidBy}","${e.category}",${escapedDesc},${e.amount}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const linkNode = document.createElement("a");
+            linkNode.setAttribute("href", url);
+            linkNode.setAttribute("download", `Expenses_${selectedMonth}.csv`);
+            document.body.appendChild(linkNode);
+            linkNode.click();
+            document.body.removeChild(linkNode);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
