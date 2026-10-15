@@ -182,7 +182,7 @@
             <form id="expense-form" class="form-group">
                 <input type="date" id="date" required>
                 <select id="category" required>
-                    <option value="household" id="opt-household" selected>General Household (5-Way Split)</option>
+                    <option value="household" id="opt-household" selected>General Household Expense</option>
                     <option value="shaw" class="utility-option">Shaw Internet (8-Way Split)</option>
                     <option value="enmax" class="utility-option">Enmax Electricity (8-Way Split)</option>
                     <option value="atco" class="utility-option">Atco Gas (8-Way Split)</option>
@@ -230,7 +230,7 @@
             <h2 id="report-title">Monthly Settlement Report (Basement)</h2>
             
             <div class="summary-box">
-                <p><strong>Total General Household (5-Way Split):</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share)</em></p>
+                <p><strong>Total General Household (<span id="split-type-label">5-Way</span> Split):</strong> $<span id="household-total">0.00</span> <em>($<span id="household-share">0.00</span> / share)</em></p>
                 <hr style="border:0; border-top: 1px dashed #cbd5e1; margin: 12px 0;">
                 <p>🌐 <strong>Shaw Internet Total:</strong> $<span id="shaw-total">0.00</span> <em>($<span id="shaw-share">0.00</span> / person share)</em></p>
                 <p>⚡ <strong>Enmax Electricity Total:</strong> $<span id="enmax-total">0.00</span> <em>($<span id="enmax-share">0.00</span> / person share)</em></p>
@@ -303,6 +303,7 @@
 
         const validUsers = ["Biren", "Akshay", "Kunjalbhabhi", "Biju", "Jaimin", "Manali"];
         const TOTAL_UTILITY_RESIDENTS = 8; 
+        const NEW_SPLIT_START_MONTH = "2026-10"; // Months >= this use 5-way split; prior months use 4-way.
 
         const rentDistribution = {
             "Biren & Manali": 650,
@@ -365,6 +366,14 @@
             const [year, month] = currentMonthStr.split('-').map(Number);
             const date = new Date(year, month - 2, 1);
             return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        }
+
+        function getSplitConfig(monthStr) {
+            if (monthStr >= NEW_SPLIT_START_MONTH) {
+                return { totalShares: 5, shareCounts: { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 }, label: "5-Way" };
+            } else {
+                return { totalShares: 4, shareCounts: { "Biren": 1, "Akshay & Kunjalbhabhi": 1, "Biju": 1, "Jaimin": 1 }, label: "4-Way" };
+            }
         }
 
         async function fetchExpensesFromCloud() {
@@ -521,11 +530,13 @@
 
             monthExpenses.sort((a, b) => new Date(b.date) - new Date(a.date));
 
+            const splitConfig = getSplitConfig(selectedMonth);
+
             monthExpenses.forEach(item => {
                 const row = document.createElement('tr');
                 let actionsCell = isAdmin ? `<td><button class="btn-action btn-edit" onclick="editExpense(${item.id})">Edit</button><button class="btn-action btn-delete" onclick="deleteExpense(${item.id})">Delete</button></td>` : '';
 
-                let categoryTag = '<span style="color:#2980b9;">Household (5-Way)</span>';
+                let categoryTag = `<span style="color:#2980b9;">Household (${splitConfig.label})</span>`;
                 if (item.category === 'shaw') categoryTag = '<span style="color:#d35400; font-weight:bold;">Shaw Internet (8-Way)</span>';
                 if (item.category === 'enmax') categoryTag = '<span style="color:#f39c12; font-weight:bold;">Enmax Elec (8-Way)</span>';
                 if (item.category === 'atco') categoryTag = '<span style="color:#e74c3c; font-weight:bold;">Atco Gas (8-Way)</span>';
@@ -722,7 +733,7 @@
 
             let prevMonthExpenses = expenses.filter(e => e.date && e.date.startsWith(previousMonth));
             let householdTotal = 0;
-            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0, "Jaimin": 0 };
             
             prevMonthExpenses.forEach(item => {
                 if (!['shaw', 'enmax', 'atco'].includes(item.category)) {
@@ -730,16 +741,19 @@
                     if (item.paidBy === "Biren" || item.paidBy === "Manali") unitHouseholdSpent["Biren"] += item.amount;
                     else if (item.paidBy === "Biju") unitHouseholdSpent["Biju"] += item.amount;
                     else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                    else if (item.paidBy === "Jaimin") unitHouseholdSpent["Jaimin"] += item.amount;
                 }
             });
 
-            const householdSharePerShare = householdTotal / 5;
-            const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const prevSplitConfig = getSplitConfig(previousMonth);
+            const householdSharePerShare = householdTotal / prevSplitConfig.totalShares;
+            const unitShareCounts = prevSplitConfig.shareCounts;
+            const householdUnits = Object.keys(unitShareCounts);
             
             let householdTransfersText = "";
             if (householdTotal > 0) {
                 let debtors = [], creditors = [];
-                ["Biren", "Akshay & Kunjalbhabhi", "Biju"].forEach(uk => {
+                householdUnits.forEach(uk => {
                     const paid = unitHouseholdSpent[uk] || 0;
                     const targetShare = householdSharePerShare * unitShareCounts[uk];
                     const net = paid - targetShare;
@@ -798,9 +812,14 @@
 
         function calculateSettlementForMonth(selectedMonth) {
             const prevMonth = getPreviousMonthString(selectedMonth);
+            const splitConfig = getSplitConfig(selectedMonth);
+            const prevSplitConfig = getSplitConfig(prevMonth);
+
             let prevMonthUnpaidDebts = {};
             let prevMonthOriginalDebts = {};
-            const householdUnits = ["Biren", "Akshay & Kunjalbhabhi", "Biju"];
+            const prevHouseholdUnits = Object.keys(prevSplitConfig.shareCounts);
+            const householdUnits = Object.keys(splitConfig.shareCounts);
+
             const landlordRows = [
                 { key: "Biren & Manali", name: "Biren & Manali", utilityMultiplier: 2, rent: rentDistribution["Biren & Manali"] },
                 { key: "Akshay & Kunjal", name: "Akshay & Kunjal", utilityMultiplier: 2, rent: rentDistribution["Akshay & Kunjal"] },
@@ -809,7 +828,7 @@
 
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
             if (prevExpenses.length > 0) {
-                let prevSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+                let prevSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0, "Jaimin": 0 };
                 let prevTotal = 0;
                 prevExpenses.forEach(item => {
                     if (!['shaw', 'enmax', 'atco'].includes(item.category)) {
@@ -817,15 +836,17 @@
                         if (item.paidBy === "Biren" || item.paidBy === "Manali") prevSpent["Biren"] += item.amount;
                         else if (item.paidBy === "Biju") prevSpent["Biju"] += item.amount;
                         else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") prevSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                        else if (item.paidBy === "Jaimin") prevSpent["Jaimin"] += item.amount;
                     }
                 });
 
-                const prevSharePerShare = prevTotal / 5;
-                const prevUnitTargetShares = { "Biren": prevSharePerShare * 2, "Akshay & Kunjalbhabhi": prevSharePerShare * 2, "Biju": prevSharePerShare };
+                const prevSharePerShare = prevTotal / prevSplitConfig.totalShares;
+                let prevUnitTargetShares = {};
+                prevHouseholdUnits.forEach(uk => { prevUnitTargetShares[uk] = prevSharePerShare * prevSplitConfig.shareCounts[uk]; });
 
-                householdUnits.forEach(unitKey => {
+                prevHouseholdUnits.forEach(unitKey => {
                     const paid = prevSpent[unitKey] || 0;
-                    const netBeforePayment = paid - prevUnitTargetShares[unitKey];
+                    const netBeforePayment = paid - (prevUnitTargetShares[unitKey] || 0);
                     if (netBeforePayment < -0.005) {
                         const totalPayRequired = Math.abs(netBeforePayment);
                         prevMonthOriginalDebts[unitKey] = totalPayRequired;
@@ -838,7 +859,7 @@
                     }
                 });
             } else {
-                householdUnits.forEach(unitKey => { prevMonthOriginalDebts[unitKey] = 0; prevMonthUnpaidDebts[unitKey] = 0; });
+                prevHouseholdUnits.forEach(unitKey => { prevMonthOriginalDebts[unitKey] = 0; prevMonthUnpaidDebts[unitKey] = 0; });
             }
 
             const filteredExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
@@ -849,9 +870,10 @@
 
             document.getElementById('report-title').innerText = `Household Expense Settlement Report (${monthName})`;
             document.getElementById('prev-balance-section-title').innerText = `4. Previous Month Unpaid Balances (${prevMonthName})`;
+            document.getElementById('split-type-label').innerText = splitConfig.label;
 
             let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
-            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0, "Jaimin": 0 };
 
             filteredExpenses.forEach(item => {
                 if (item.category === 'shaw') shawTotal += item.amount;
@@ -862,10 +884,11 @@
                     if (item.paidBy === "Biren" || item.paidBy === "Manali") unitHouseholdSpent["Biren"] += item.amount;
                     else if (item.paidBy === "Biju") unitHouseholdSpent["Biju"] += item.amount;
                     else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                    else if (item.paidBy === "Jaimin") unitHouseholdSpent["Jaimin"] += item.amount;
                 }
             });
 
-            const householdSharePerShare = householdTotal / 5;
+            const householdSharePerShare = householdTotal / splitConfig.totalShares;
             const utilitySharePerPerson = (shawTotal + enmaxTotal + atcoTotal) / TOTAL_UTILITY_RESIDENTS;
             const basementTotalContribution = utilitySharePerPerson * 5;
 
@@ -911,9 +934,8 @@
                 spendingBody.appendChild(row);
             });
 
-            // Settlement & Transfers
             let debtors = [], creditors = [];
-            const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const unitShareCounts = splitConfig.shareCounts;
             const settlementBody = document.getElementById('settlement-list');
             settlementBody.innerHTML = '';
 
@@ -945,7 +967,7 @@
                 if (adjustedNet > 0.005) creditors.push({ person: unitKey, amount: adjustedNet });
                 else if (adjustedNet < -0.005) debtors.push({ person: unitKey, amount: Math.abs(adjustedNet) });
 
-                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : (unitKey === "Jaimin" ? "Jaimin" : unitKey));
                 const row = document.createElement('tr');
                 row.innerHTML = `
                     <td><strong>${displayName}</strong></td>
@@ -973,18 +995,17 @@
 
             const transfersList = document.getElementById('transfers-list');
             transfersList.innerHTML = transferListDetailed.length === 0 ? '<li>Everyone is settled up equally for current household expenses!</li>' : transferListDetailed.map(t => {
-                const fName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
-                const tName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
+                const fName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : (t.from === "Jaimin" ? "Jaimin" : t.from));
+                const tName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : (t.to === "Jaimin" ? "Jaimin" : t.to));
                 return `<li><strong>${fName}</strong> Pay <strong>${tName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span></li>`;
             }).join('');
 
-            // Previous Balances
             const prevBalanceBody = document.getElementById('prev-balance-list');
             prevBalanceBody.innerHTML = '';
-            householdUnits.forEach(unitKey => {
+            prevHouseholdUnits.forEach(unitKey => {
                 const originalDebt = prevMonthOriginalDebts[unitKey] || 0;
                 const prevBalance = prevMonthUnpaidDebts[unitKey] || 0;
-                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : (unitKey === "Jaimin" ? "Jaimin" : unitKey));
                 
                 let paymentCell = `<td><span style="color:#27ae60; font-weight:bold;">No Past Due ✓</span></td>`;
                 if (originalDebt > 0) {
@@ -1057,7 +1078,7 @@
                 let col2ValX = 168;
                 let lineY = currentY + 7;
 
-                doc.text(`Total Gen. Household (5-Way):`, col1LabelX, lineY);
+                doc.text(`Total Gen. Household Split:`, col1LabelX, lineY);
                 doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/sh)`, col1ValX - 10, lineY);
                 doc.text(`Combined Utility Total:`, col2LabelX, lineY);
                 doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
