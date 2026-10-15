@@ -734,6 +734,7 @@
                 }
             });
 
+            // STRICTLY evaluate divisor based on previous month string comparison
             const prevDivisor = (previousMonth >= "2026-10") ? 5 : 4;
             const householdSharePerShare = householdTotal / prevDivisor;
             const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
@@ -778,9 +779,9 @@
                 const prevMonthName = new Date(pYr, pMo - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
                 if (userTransfers.length > 0) {
-                    householdTransfersText = `<p>🛒 <strong>Household Standing (${prevMonthName}):</strong> ${userTransfers.join(' | ')}</p>`;
+                    householdTransfersText = `<p>🛒 <strong>Household Standing (${prevMonthName}, ${prevDivisor}-Way Split):</strong> ${userTransfers.join(' | ')}</p>`;
                 } else {
-                    householdTransfersText = `<p>🛒 <strong>Household Standing (${prevMonthName}):</strong> <span class="gets-back">All settled up for previous month ✓</span></p>`;
+                    householdTransfersText = `<p>🛒 <strong>Household Standing (${prevMonthName}, ${prevDivisor}-Way Split):</strong> <span class="gets-back">All settled up for previous month ✓</span></p>`;
                 }
             } else {
                 const [pYr, pMo] = previousMonth.split('-');
@@ -809,6 +810,7 @@
                 { key: "Biju", name: "Biju", utilityMultiplier: 1, rent: rentDistribution["Biju"] }
             ];
 
+            // STRICTLY evaluate previous month divisor based on whether previous month is >= 2026-10
             const prevDivisor = (prevMonth >= "2026-10") ? 5 : 4;
             const prevExpenses = expenses.filter(e => e.date && e.date.startsWith(prevMonth));
             if (prevExpenses.length > 0) {
@@ -868,6 +870,7 @@
                 }
             });
 
+            // STRICTLY evaluate selected month divisor: >= 2026-10 is 5-way, else 4-way
             const currentDivisor = (selectedMonth >= "2026-10") ? 5 : 4;
             const householdSharePerShare = householdTotal / currentDivisor;
             const utilitySharePerPerson = (shawTotal + enmaxTotal + atcoTotal) / TOTAL_UTILITY_RESIDENTS;
