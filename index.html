@@ -824,4 +824,386 @@
                 });
 
                 const prevSharePerShare = prevTotal / prevDivisor;
-                const prev
+                const prevUnitTargetShares = { "Biren": prevSharePerShare * 2, "Akshay & Kunjalbhabhi": prevSharePerShare * 2, "Biju": prevSharePerShare };
+
+                householdUnits.forEach(unitKey => {
+                    const paid = prevSpent[unitKey] || 0;
+                    const netBeforePayment = paid - prevUnitTargetShares[unitKey];
+                    if (netBeforePayment < -0.005) {
+                        const totalPayRequired = Math.abs(netBeforePayment);
+                        prevMonthOriginalDebts[unitKey] = totalPayRequired;
+                        const recordVal = monthlyPayments.householdPaid?.[prevMonth]?.[unitKey];
+                        let paidAmount = (recordVal === true) ? totalPayRequired : (typeof recordVal === 'number' ? recordVal : 0);
+                        prevMonthUnpaidDebts[unitKey] = Math.max(0, totalPayRequired - paidAmount);
+                    } else {
+                        prevMonthOriginalDebts[unitKey] = 0;
+                        prevMonthUnpaidDebts[unitKey] = 0;
+                    }
+                });
+            } else {
+                householdUnits.forEach(unitKey => { prevMonthOriginalDebts[unitKey] = 0; prevMonthUnpaidDebts[unitKey] = 0; });
+            }
+
+            const filteredExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            const [sYear, sMonth] = selectedMonth.split('-');
+            const monthName = new Date(sYear, sMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const [pYear, pMonth] = prevMonth.split('-');
+            const prevMonthName = new Date(pYear, pMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+            document.getElementById('report-title').innerText = `Household Expense Settlement Report (${monthName})`;
+            document.getElementById('prev-balance-section-title').innerText = `4. Previous Month Unpaid Balances (${prevMonthName})`;
+
+            let householdTotal = 0, shawTotal = 0, enmaxTotal = 0, atcoTotal = 0;
+            let unitHouseholdSpent = { "Biren": 0, "Akshay & Kunjalbhabhi": 0, "Biju": 0 };
+
+            filteredExpenses.forEach(item => {
+                if (item.category === 'shaw') shawTotal += item.amount;
+                else if (item.category === 'enmax') enmaxTotal += item.amount;
+                else if (item.category === 'atco') atcoTotal += item.amount;
+                else {
+                    householdTotal += item.amount;
+                    if (item.paidBy === "Biren" || item.paidBy === "Manali") unitHouseholdSpent["Biren"] += item.amount;
+                    else if (item.paidBy === "Biju") unitHouseholdSpent["Biju"] += item.amount;
+                    else if (item.paidBy === "Akshay" || item.paidBy === "Kunjalbhabhi") unitHouseholdSpent["Akshay & Kunjalbhabhi"] += item.amount;
+                }
+            });
+
+            const currentDivisor = (selectedMonth >= "2026-10") ? 5 : 4;
+            const householdSharePerShare = householdTotal / currentDivisor;
+            const utilitySharePerPerson = (shawTotal + enmaxTotal + atcoTotal) / TOTAL_UTILITY_RESIDENTS;
+            const basementTotalContribution = utilitySharePerPerson * 5;
+
+            const splitLabelEl = document.getElementById('household-split-label');
+            if (splitLabelEl) splitLabelEl.innerText = currentDivisor;
+
+            document.getElementById('household-total').innerText = householdTotal.toFixed(2);
+            document.getElementById('household-share').innerText = householdSharePerShare.toFixed(2);
+            document.getElementById('shaw-total').innerText = shawTotal.toFixed(2);
+            document.getElementById('shaw-share').innerText = (shawTotal / TOTAL_UTILITY_RESIDENTS).toFixed(2);
+            document.getElementById('enmax-total').innerText = enmaxTotal.toFixed(2);
+            document.getElementById('enmax-share').innerText = (enmaxTotal / TOTAL_UTILITY_RESIDENTS).toFixed(2);
+            document.getElementById('atco-total').innerText = atcoTotal.toFixed(2);
+            document.getElementById('atco-share').innerText = (atcoTotal / TOTAL_UTILITY_RESIDENTS).toFixed(2);
+            document.getElementById('utility-total').innerText = (shawTotal + enmaxTotal + atcoTotal).toFixed(2);
+            document.getElementById('basement-total').innerText = basementTotalContribution.toFixed(2);
+
+            const spendingBody = document.getElementById('spending-breakdown-list');
+            spendingBody.innerHTML = '';
+
+            landlordRows.forEach(rowInfo => {
+                const personUtilityTotal = utilitySharePerPerson * rowInfo.utilityMultiplier;
+                const totalDueJaimin = personUtilityTotal + rowInfo.rent;
+                const recordVal = monthlyPayments.landlordPayments?.[selectedMonth]?.[rowInfo.key];
+                let paidAmount = (recordVal === true || (typeof recordVal === 'number' && recordVal >= totalDueJaimin - 0.005)) ? totalDueJaimin : (typeof recordVal === 'number' ? recordVal : 0);
+                const remainingDue = totalDueJaimin - paidAmount;
+                const isFullyPaid = (totalDueJaimin > 0 && remainingDue <= 0.005) || (totalDueJaimin === 0);
+
+                let actionLabel = isFullyPaid ? 'Paid & Settled ✓' : (remainingDue > 0 ? `Pay $${remainingDue.toFixed(2)}` : 'Enter Payment');
+                let actionCell = `<td><span class="${isFullyPaid ? 'gets-back' : 'pay-amt'}">${isFullyPaid ? 'Paid & Settled ✓' : `Owing: $${remainingDue.toFixed(2)}`}</span></td>`;
+                
+                const allowedUsers = rowInfo.key === 'Biren & Manali' ? ['Biren', 'Manali'] : (rowInfo.key === 'Akshay & Kunjal' ? ['Akshay', 'Kunjalbhabhi'] : [rowInfo.key]);
+                
+                if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
+                    actionCell = `<td><button class="btn-action ${isFullyPaid ? 'btn-paid' : 'btn-unpaid'}" onclick="promptLandlordPayment('${selectedMonth}', '${rowInfo.key}', ${totalDueJaimin})">${actionLabel}</button></td>`;
+                }
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${rowInfo.name}</strong></td>
+                    <td class="val-utility-share">$${personUtilityTotal.toFixed(2)}</td>
+                    <td class="val-rent-share">$${rowInfo.rent.toFixed(2)}</td>
+                    <td class="landlord-pay"><strong>$${totalDueJaimin.toFixed(2)}</strong></td>
+                    ${actionCell}
+                `;
+                spendingBody.appendChild(row);
+            });
+
+            // Settlement & Transfers
+            let debtors = [], creditors = [];
+            const unitShareCounts = { "Biren": 2, "Akshay & Kunjalbhabhi": 2, "Biju": 1 };
+            const settlementBody = document.getElementById('settlement-list');
+            settlementBody.innerHTML = '';
+
+            householdUnits.forEach(unitKey => {
+                const paid = unitHouseholdSpent[unitKey] || 0;
+                const targetShare = householdSharePerShare * unitShareCounts[unitKey];
+                const net = paid - targetShare;
+                const recordVal = monthlyPayments.householdPaid?.[selectedMonth]?.[unitKey];
+                let paidAmount = (recordVal === true) ? Math.abs(net) : (typeof recordVal === 'number' ? recordVal : 0);
+                
+                let adjustedNet = net;
+                if (net < 0) {
+                    adjustedNet = Math.min(0, net + paidAmount);
+                } else if (net > 0) {
+                    adjustedNet = Math.max(0, net - paidAmount);
+                }
+
+                const isFullyPaid = Math.abs(adjustedNet) <= 0.005;
+                let owingAmount = Math.abs(adjustedNet);
+                let actionLabel = isFullyPaid ? 'Paid & Settled ✓' : (adjustedNet < 0 ? `Pay $${owingAmount.toFixed(2)}` : 'Paid & Settled ✓');
+                let actionCell = `<td><span class="${isFullyPaid ? 'gets-back' : 'pay-amt'}">${isFullyPaid ? 'Paid & Settled ✓' : `Owing: -$${owingAmount.toFixed(2)}`}</span></td>`;
+                
+                const allowedUsers = unitKey === 'Biren' ? ['Biren', 'Manali'] : (unitKey === 'Akshay & Kunjalbhabhi' ? ['Akshay', 'Kunjalbhabhi'] : [unitKey]);
+                if (isAdmin || isJaimin || allowedUsers.includes(currentUser)) {
+                    const btnClass = isFullyPaid ? 'btn-paid' : 'btn-unpaid';
+                    actionCell = `<td><button class="btn-action ${btnClass}" onclick="promptHouseholdPayment('${selectedMonth}', '${unitKey}', ${Math.abs(net)})">${actionLabel}</button></td>`;
+                }
+
+                if (adjustedNet > 0.005) creditors.push({ person: unitKey, amount: adjustedNet });
+                else if (adjustedNet < -0.005) debtors.push({ person: unitKey, amount: Math.abs(adjustedNet) });
+
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${displayName}</strong></td>
+                    <td class="val-out-of-pocket">$${paid.toFixed(2)}</td>
+                    <td class="val-share-owed">$${targetShare.toFixed(2)}</td>
+                    <td class="${adjustedNet >= 0 ? 'gets-back' : 'pay-amt'}">${adjustedNet >= 0 ? (adjustedNet > 0 ? `+$${adjustedNet.toFixed(2)}` : '$0.00') : `-$${Math.abs(adjustedNet).toFixed(2)}`}</td>
+                    ${actionCell}
+                `;
+                settlementBody.appendChild(row);
+            });
+
+            let tempDebtors = JSON.parse(JSON.stringify(debtors));
+            let tempCreditors = JSON.parse(JSON.stringify(creditors));
+            let transferListDetailed = [];
+
+            while (tempDebtors.length > 0 && tempCreditors.length > 0) {
+                let debtor = tempDebtors[0], creditor = tempCreditors[0];
+                let transferAmount = Math.min(debtor.amount, creditor.amount);
+                transferListDetailed.push({ from: debtor.person, to: creditor.person, amount: transferAmount });
+                debtor.amount -= transferAmount;
+                creditor.amount -= transferAmount;
+                if (debtor.amount < 0.01) tempDebtors.shift();
+                if (creditor.amount < 0.01) tempCreditors.shift();
+            }
+
+            const transfersList = document.getElementById('transfers-list');
+            transfersList.innerHTML = transferListDetailed.length === 0 ? '<li>Everyone is settled up equally for current household expenses!</li>' : transferListDetailed.map(t => {
+                const fName = t.from === "Biren" ? "Biren & Manali" : (t.from === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.from);
+                const tName = t.to === "Biren" ? "Biren & Manali" : (t.to === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : t.to);
+                return `<li><strong>${fName}</strong> Pay <strong>${tName}</strong>: <span style="color:#27ae60; font-weight:bold;">$${t.amount.toFixed(2)}</span></li>`;
+            }).join('');
+
+            // Previous Balances
+            const prevBalanceBody = document.getElementById('prev-balance-list');
+            prevBalanceBody.innerHTML = '';
+            householdUnits.forEach(unitKey => {
+                const originalDebt = prevMonthOriginalDebts[unitKey] || 0;
+                const prevBalance = prevMonthUnpaidDebts[unitKey] || 0;
+                const displayName = unitKey === "Biren" ? "Biren & Manali" : (unitKey === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : unitKey);
+                
+                let paymentCell = `<td><span style="color:#27ae60; font-weight:bold;">No Past Due ✓</span></td>`;
+                if (originalDebt > 0) {
+                    const isPaid = prevBalance <= 0.005;
+                    let actionLabel = isPaid ? 'Paid & Settled ✓' : `Pay $${prevBalance.toFixed(2)}`;
+                    const btnClass = isPaid ? 'btn-paid' : 'btn-unpaid';
+                    paymentCell = `<td><button class="btn-action ${btnClass}" onclick="promptPrevBalancePayment('${selectedMonth}', '${unitKey}', ${originalDebt})">${actionLabel}</button></td>`;
+                }
+
+                const row = document.createElement('tr');
+                row.innerHTML = `
+                    <td><strong>${displayName}</strong></td>
+                    <td class="val-prev-balance">${prevBalance > 0 ? `<span class="pay-amt">-$${prevBalance.toFixed(2)}</span>` : '<span style="color:#27ae60; font-weight:bold;">$0.00 (Settled)</span>'}</td>
+                    ${paymentCell}
+                `;
+                prevBalanceBody.appendChild(row);
+            });
+        }
+
+        async function exportToPDF() {
+            try {
+                const selectedMonth = document.getElementById('view-month-select').value;
+                calculateSettlementForMonth(selectedMonth);
+
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+                const primaryColor = [44, 62, 80];
+                const secondaryColor = [52, 152, 219];
+                const darkNeutral = [51, 51, 51];
+                const lightNeutral = [248, 250, 252];
+
+                const [sYear, sMonth] = selectedMonth.split('-');
+                const monthName = new Date(sYear, sMonth - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+
+                doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.rect(0, 0, 210, 25, 'F');
+                doc.setTextColor(255, 255, 255);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(15);
+                doc.text("HOUSEHOLD EXPENSE SETTLEMENT REPORT", 14, 16);
+
+                let currentY = 35;
+                doc.setTextColor(darkNeutral[0], darkNeutral[1], darkNeutral[2]);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(12);
+                doc.text(`Billing Period: ${monthName}`, 14, currentY);
+
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(9);
+                doc.text(`Generated on: ${new Date().toLocaleDateString()}`, 196, currentY, { align: 'right' });
+
+                currentY += 6;
+                doc.setLineWidth(0.4);
+                doc.setDrawColor(secondaryColor[0], secondaryColor[1], secondaryColor[2]);
+                doc.line(14, currentY, 196, currentY);
+                currentY += 8;
+
+                doc.setFillColor(248, 250, 252);
+                doc.setDrawColor(203, 213, 225);
+                doc.roundedRect(14, currentY, 182, 42, 2, 2, 'FD');
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(9);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                
+                let col1LabelX = 18;
+                let col1ValX = 78;
+                let col2LabelX = 115;
+                let col2ValX = 168;
+                let lineY = currentY + 7;
+
+                const currentDivisor = (selectedMonth >= "2026-10") ? 5 : 4;
+                doc.text(`Total Gen. Household (${currentDivisor}-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('household-total').innerText} ($${document.getElementById('household-share').innerText}/sh)`, col1ValX - 10, lineY);
+                doc.text(`Combined Utility Total:`, col2LabelX, lineY);
+                doc.text(`$${document.getElementById('utility-total').innerText}`, col2ValX, lineY);
+
+                lineY += 7;
+                doc.text(`Shaw Internet Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('shaw-total').innerText} ($${document.getElementById('shaw-share').innerText}/sh)`, col1ValX - 10, lineY);
+                doc.text(`Basement Contribution (5/8):`, col2LabelX, lineY);
+                doc.setTextColor(39, 174, 96);
+                doc.text(`$${document.getElementById('basement-total').innerText}`, col2ValX, lineY);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+
+                lineY += 7;
+                doc.text(`Enmax Electricity Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('enmax-total').innerText} ($${document.getElementById('enmax-share').innerText}/sh)`, col1ValX - 10, lineY);
+
+                lineY += 7;
+                doc.text(`Atco Gas Total (8-Way):`, col1LabelX, lineY);
+                doc.text(`$${document.getElementById('atco-total').innerText} ($${document.getElementById('atco-share').innerText}/sh)`, col1ValX - 10, lineY);
+
+                currentY += 50;
+
+                function getTableData(tableBodyId) {
+                    const tbody = document.getElementById(tableBodyId);
+                    if (!tbody) return [];
+                    let data = [];
+                    tbody.querySelectorAll('tr').forEach(row => {
+                        let rowData = [];
+                        row.querySelectorAll('td').forEach((col, idx) => {
+                            let text = col.innerText.trim().replace(/\s+/g, ' ');
+                            if (text.includes('Paid & Settled')) text = 'Paid & Settled';
+                            rowData.push(text);
+                        });
+                        if (rowData.length) data.push(rowData);
+                    });
+                    return data;
+                }
+
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+                doc.text("1. Rent & Utility Breakdown (Payable to Jaimin)", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Person / Unit', 'Utility Shares', 'Rent Share', 'Total Payable', 'Status']],
+                    body: getTableData('spending-breakdown-list'),
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    margin: { left: 14, right: 14 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+
+                const transfersListEl = document.getElementById('transfers-list');
+                if (transfersListEl) {
+                    doc.setFont("helvetica", "bold");
+                    doc.setFontSize(11);
+                    doc.text("2. Internal Household Transfers (Groceries & Shared)", 14, currentY);
+                    currentY += 6;
+                    doc.setFont("helvetica", "normal");
+                    doc.setFontSize(9);
+                    transfersListEl.querySelectorAll('li').forEach(li => {
+                        doc.text(`• ${li.innerText}`, 18, currentY);
+                        currentY += 5;
+                    });
+                    currentY += 8;
+                }
+
+                if (currentY > 230) { doc.addPage(); currentY = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text("3. Individual Balances & Settlement Summary", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Person / Unit', 'Total Paid', 'Target Share', 'Net Balance', 'Status']],
+                    body: getTableData('settlement-list'),
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    margin: { left: 14, right: 14 }
+                });
+                currentY = doc.lastAutoTable.finalY + 10;
+
+                if (currentY > 230) { doc.addPage(); currentY = 20; }
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(11);
+                doc.text("4. Previous Month Unpaid Balances", 14, currentY);
+                currentY += 4;
+
+                doc.autoTable({
+                    startY: currentY,
+                    head: [['Person / Unit', 'Previous Month Due', 'Payment Status']],
+                    body: getTableData('prev-balance-list'),
+                    theme: 'striped',
+                    headStyles: { fillColor: primaryColor, textColor: [255, 255, 255], fontStyle: 'bold' },
+                    bodyStyles: { textColor: darkNeutral, fontSize: 9 },
+                    alternateRowStyles: { fillColor: lightNeutral },
+                    margin: { left: 14, right: 14 }
+                });
+
+                doc.save(`Household_Expense_Report_${selectedMonth}.pdf`);
+            } catch (err) {
+                console.error("PDF Generation Error:", err);
+                alert("Failed to generate PDF report.");
+            }
+        }
+
+        function exportToCSV() {
+            const selectedMonth = document.getElementById('view-month-select').value;
+            const monthExpenses = expenses.filter(e => e.date && e.date.startsWith(selectedMonth));
+            if (monthExpenses.length === 0) {
+                alert('No expenses recorded for this month to export.');
+                return;
+            }
+
+            let csvContent = "Date,Paid By,Category,Description,Amount\n";
+            monthExpenses.forEach(e => {
+                const escapedDesc = e.description ? `"${e.description.replace(/"/g, '""')}"` : '""';
+                csvContent += `"${e.date}","${e.paidBy}","${e.category}",${escapedDesc},${e.amount}\n`;
+            });
+
+            const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const linkNode = document.createElement("a");
+            linkNode.setAttribute("href", url);
+            linkNode.setAttribute("download", `Expenses_${selectedMonth}.csv`);
+            document.body.appendChild(linkNode);
+            linkNode.click();
+            document.body.removeChild(linkNode);
+        }
+
+        initApp();
+    </script>
+</body>
+</html>
