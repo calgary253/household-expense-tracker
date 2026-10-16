@@ -763,7 +763,7 @@
                     
                     if (debtor.person === userUnitKey) {
                         const toName = creditor.person === "Biren" ? "Biren & Manali" : (creditor.person === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : creditor.person);
-                        userTransfers.push(`You pay <strong>${toName}</strong>: <span class="pay-amt">$${transferAmount.toFixed(2)}</span>`);
+                        userTransfers.push(`You pay <strong>${toName}</strong>: <span class="pay-amt">-$${transferAmount.toFixed(2)}</span>`);
                     } else if (creditor.person === userUnitKey) {
                         const fromName = debtor.person === "Biren" ? "Biren & Manali" : (debtor.person === "Akshay & Kunjalbhabhi" ? "Akshay & Kunjal" : debtor.person);
                         userTransfers.push(`<strong>${fromName}</strong> pays you: <span class="gets-back">+$${transferAmount.toFixed(2)}</span>`);
